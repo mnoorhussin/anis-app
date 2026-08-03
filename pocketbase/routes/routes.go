@@ -18,7 +18,8 @@ import (
 
 // Deps are the services the routes need.
 type Deps struct {
-	Ingest *ingest.Service
+	Ingest  *ingest.Service
+	Crawler *ingest.Crawler
 }
 
 // Register mounts every custom route.
@@ -37,6 +38,7 @@ func Register(e *core.ServeEvent, deps Deps) {
 	authed := g.Group("")
 	authed.Bind(apis.RequireAuth())
 	authed.POST("/sources", handleCreateSource(deps))
+	authed.POST("/sources/{id}/refresh", handleRefreshSource(deps))
 
 	// --- Widget: called from arbitrary third-party domains -----------------
 	//

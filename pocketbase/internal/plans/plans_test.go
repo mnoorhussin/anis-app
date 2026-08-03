@@ -37,6 +37,7 @@ func TestCatalogueMatchesTypeScript(t *testing.T) {
 			{"members", got.Members},
 			{"sourcesPerWorkspace", got.SourcesPerWorkspace},
 			{"chunksPerWorkspace", got.ChunksPerWorkspace},
+			{"pagesPerCrawl", got.PagesPerCrawl},
 			{"retentionDays", got.RetentionDays},
 		} {
 			ts, ok := numberField(block, f.key)

@@ -89,6 +89,13 @@ export interface PlanLimits {
   /** Ceiling on total indexed chunks per workspace — the real cost driver. */
   chunksPerWorkspace: number;
   /**
+   * Pages fetched in one website crawl. Separate from sourcesPerWorkspace
+   * because a single site can be thousands of pages, and each one costs an
+   * outbound request against the customer's own server as well as embedding
+   * spend.
+   */
+  pagesPerCrawl: number;
+  /**
    * Conversation retention, in days. `null` means "keep until deleted", which
    * we only offer where the customer has configured it deliberately — the
    * privacy page states the actual number.
@@ -136,6 +143,7 @@ export const PLANS: Record<PlanId, Plan> = {
       members: 1,
       sourcesPerWorkspace: 5,
       chunksPerWorkspace: 500,
+      pagesPerCrawl: 20,
       retentionDays: 30,
     },
     features: [],
@@ -153,6 +161,7 @@ export const PLANS: Record<PlanId, Plan> = {
       members: 2,
       sourcesPerWorkspace: 50,
       chunksPerWorkspace: 10_000,
+      pagesPerCrawl: 100,
       retentionDays: 90,
     },
     features: ['basicAnalytics', 'leadCapture', 'emailEscalation'],
@@ -171,6 +180,7 @@ export const PLANS: Record<PlanId, Plan> = {
       members: 5,
       sourcesPerWorkspace: 200,
       chunksPerWorkspace: 50_000,
+      pagesPerCrawl: 300,
       retentionDays: 180,
     },
     features: [
@@ -198,6 +208,7 @@ export const PLANS: Record<PlanId, Plan> = {
       members: 15,
       sourcesPerWorkspace: 1_000,
       chunksPerWorkspace: 200_000,
+      pagesPerCrawl: 1_000,
       retentionDays: 365,
     },
     features: [
@@ -229,6 +240,7 @@ export const PLANS: Record<PlanId, Plan> = {
       members: 25,
       sourcesPerWorkspace: 1_000,
       chunksPerWorkspace: 200_000,
+      pagesPerCrawl: 1_000,
       retentionDays: 365,
     },
     features: [

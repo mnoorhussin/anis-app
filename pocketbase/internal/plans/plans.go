@@ -34,29 +34,33 @@ type Limits struct {
 	// ChunksPerWorkspace is the real cost driver: storage, embedding spend and
 	// retrieval latency all scale with it.
 	ChunksPerWorkspace int
-	RetentionDays      int
+	// PagesPerCrawl bounds one website crawl. Separate from SourcesPerWorkspace
+	// because a single site can be thousands of pages, and each one costs an
+	// outbound request against the customer's server as well as embedding spend.
+	PagesPerCrawl int
+	RetentionDays int
 }
 
 var catalogue = map[ID]Limits{
 	Free: {
 		AIRepliesPerMonth: 50, Workspaces: 1, Websites: 1, Members: 1,
-		SourcesPerWorkspace: 5, ChunksPerWorkspace: 500, RetentionDays: 30,
+		SourcesPerWorkspace: 5, ChunksPerWorkspace: 500, PagesPerCrawl: 20, RetentionDays: 30,
 	},
 	Starter: {
 		AIRepliesPerMonth: 1000, Workspaces: 1, Websites: 1, Members: 2,
-		SourcesPerWorkspace: 50, ChunksPerWorkspace: 10000, RetentionDays: 90,
+		SourcesPerWorkspace: 50, ChunksPerWorkspace: 10000, PagesPerCrawl: 100, RetentionDays: 90,
 	},
 	Growth: {
 		AIRepliesPerMonth: 4000, Workspaces: 1, Websites: 3, Members: 5,
-		SourcesPerWorkspace: 200, ChunksPerWorkspace: 50000, RetentionDays: 180,
+		SourcesPerWorkspace: 200, ChunksPerWorkspace: 50000, PagesPerCrawl: 300, RetentionDays: 180,
 	},
 	Pro: {
 		AIRepliesPerMonth: 10000, Workspaces: 3, Websites: 10, Members: 15,
-		SourcesPerWorkspace: 1000, ChunksPerWorkspace: 200000, RetentionDays: 365,
+		SourcesPerWorkspace: 1000, ChunksPerWorkspace: 200000, PagesPerCrawl: 1000, RetentionDays: 365,
 	},
 	Agency: {
 		AIRepliesPerMonth: 25000, Workspaces: 20, Websites: 20, Members: 25,
-		SourcesPerWorkspace: 1000, ChunksPerWorkspace: 200000, RetentionDays: 365,
+		SourcesPerWorkspace: 1000, ChunksPerWorkspace: 200000, PagesPerCrawl: 1000, RetentionDays: 365,
 	},
 }
 

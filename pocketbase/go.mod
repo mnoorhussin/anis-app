@@ -15,6 +15,8 @@ require (
 	github.com/pocketbase/pocketbase v0.39.10
 )
 
+require golang.org/x/net v0.57.0
+
 require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
@@ -27,6 +29,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.23 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
@@ -39,7 +42,6 @@ require (
 	github.com/tetratelabs/wazero v1.8.1 // indirect
 	golang.org/x/crypto v0.54.0 // indirect
 	golang.org/x/image v0.44.0 // indirect
-	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect

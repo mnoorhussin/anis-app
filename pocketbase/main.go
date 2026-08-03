@@ -31,6 +31,7 @@ import (
 
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/bootstrap"
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/db"
+	"github.com/mnoorhussin/anis-app/pocketbase/internal/fetch"
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/ingest"
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/rag"
 	_ "github.com/mnoorhussin/anis-app/pocketbase/migrations"
@@ -65,7 +66,17 @@ func main() {
 	// vector and it would stay searchable.
 	ingest.RegisterHooks(app)
 
-	deps := routes.Deps{Ingest: &ingest.Service{Embedder: newEmbedder(app)}}
+	svc := &ingest.Service{Embedder: newEmbedder(app)}
+	deps := routes.Deps{
+		Ingest: svc,
+		Crawler: &ingest.Crawler{
+			Ingest: svc,
+			// A named User-Agent with a contact URL, so a site owner can
+			// identify us and rate-limit or block us deliberately rather than
+			// wondering what is hitting their server.
+			Client: newFetchClient(app),
+		},
+	}
 
 	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		// Fail fast rather than serving an assistant that cannot retrieve.
@@ -122,4 +133,28 @@ func newEmbedder(app core.App) rag.Embedder {
 		APIKey:    os.Getenv("VOYAGE_API_KEY"),
 		ModelName: os.Getenv("ANIS_EMBEDDING_MODEL"),
 	}
+}
+
+// crawlerUserAgent identifies AnisBot to the sites we fetch.
+func crawlerUserAgent() string {
+	if ua := os.Getenv("ANIS_CRAWLER_USER_AGENT"); ua != "" {
+		return ua
+	}
+	return "AnisBot/1.0 (+https://anis.chat/bot)"
+}
+
+// newFetchClient builds the crawler's HTTP client.
+//
+// The private-address escape hatch is gated behind an explicit variable and
+// warns on every startup, for the same reason as the fake embedder: it must be
+// impossible to enable by accident. With it on, a customer could point the
+// crawler at the machine's own cloud-metadata endpoint and read the
+// credentials back out of their knowledge base.
+func newFetchClient(app core.App) *fetch.Client {
+	if os.Getenv("ANIS_ALLOW_PRIVATE_CRAWL") == "1" {
+		app.Logger().Warn("SSRF PROTECTION DISABLED for the crawler - private and " +
+			"link-local addresses are reachable. Never set ANIS_ALLOW_PRIVATE_CRAWL in production.")
+		return fetch.NewAllowingPrivateAddresses(crawlerUserAgent(), 0)
+	}
+	return fetch.New(crawlerUserAgent(), 0)
 }

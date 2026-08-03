@@ -17,6 +17,7 @@ type createSourceRequest struct {
 	Type      string      `json:"type"`
 	Title     string      `json:"title"`
 	Body      string      `json:"body"`
+	URL       string      `json:"url"`
 	Pairs     []faqPairIn `json:"pairs"`
 }
 
@@ -59,6 +60,20 @@ func handleCreateSource(deps Deps) func(*core.RequestEvent) error {
 
 		if err := underSourceLimit(e.App, workspace.Id, limits.SourcesPerWorkspace); err != nil {
 			return e.BadRequestError(err.Error(), nil)
+		}
+
+		// Website ingestion is asynchronous: crawling a site takes minutes, so
+		// the source is created in `queued` and the customer watches it
+		// progress rather than holding an HTTP request open.
+		if req.Type == "website" {
+			source, err := deps.Crawler.Start(e.App, workspace.Id, req.URL, ingest.Limits{
+				Chunks: limits.ChunksPerWorkspace,
+				Pages:  limits.PagesPerCrawl,
+			})
+			if err != nil {
+				return e.BadRequestError(err.Error(), nil)
+			}
+			return e.JSON(http.StatusOK, sourceView(source))
 		}
 
 		pairs := make([]chunk.QA, 0, len(req.Pairs))
@@ -143,4 +158,42 @@ func underSourceLimit(app core.App, workspaceID string, limit int) error {
 		return fmt.Errorf("this plan allows %d sources per workspace; you have %d", limit, len(existing))
 	}
 	return nil
+}
+
+// handleRefreshSource re-crawls a website source.
+//
+// Same tenancy rule as creation, and for the same reason: this is a custom
+// route, so nothing else checks that the caller owns the source.
+func handleRefreshSource(deps Deps) func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		if e.Auth == nil {
+			return e.UnauthorizedError("sign in required", nil)
+		}
+
+		source, err := e.App.FindRecordById("sources", e.Request.PathValue("id"))
+		if err != nil {
+			return e.NotFoundError("source not found", nil)
+		}
+
+		// Verify membership of the source's OWN workspace. Reading the id from
+		// the record rather than the request is what makes this safe.
+		workspace, err := workspaceForMember(e.App, e.Auth.Id, source.GetString("workspace"))
+		if err != nil || workspace.Id != source.GetString("workspace") {
+			return e.NotFoundError("source not found", nil)
+		}
+
+		account, err := e.App.FindRecordById("accounts", workspace.GetString("account"))
+		if err != nil {
+			return e.InternalServerError("workspace has no account", err)
+		}
+		limits := plans.For(account.GetString("plan"))
+
+		if err := deps.Crawler.Refresh(e.App, source, ingest.Limits{
+			Chunks: limits.ChunksPerWorkspace,
+			Pages:  limits.PagesPerCrawl,
+		}); err != nil {
+			return e.BadRequestError(err.Error(), nil)
+		}
+		return e.JSON(http.StatusOK, sourceView(source))
+	}
 }

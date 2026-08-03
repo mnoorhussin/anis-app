@@ -35,7 +35,7 @@ const STATUS_TONE = {
   stale: 'warning',
 } as const;
 
-type Draft = { kind: 'text' | 'faq' } | null;
+type Draft = { kind: 'text' | 'faq' | 'website' } | null;
 
 export function SourcesCard({ workspaceId }: { workspaceId: string }) {
   const { t, lang } = useLanguage();
@@ -54,6 +54,16 @@ export function SourcesCard({ workspaceId }: { workspaceId: string }) {
   }, []);
 
   useEffect(load, [load]);
+
+  async function refresh(id: string) {
+    try {
+      await pb.send(`/api/anis/sources/${encodeURIComponent(id)}/refresh`, { method: 'POST' });
+      load();
+    } catch (err: unknown) {
+      const res = (err as { response?: { message?: string } })?.response;
+      setError(res?.message ?? (err instanceof Error ? err.message : String(err)));
+    }
+  }
 
   async function remove(id: string) {
     try {
@@ -79,10 +89,12 @@ export function SourcesCard({ workspaceId }: { workspaceId: string }) {
             <Button size="sm" variant="secondary" onClick={() => setDraft({ kind: 'faq' })}>
               {t('addFaq')}
             </Button>
-            {/* Marked "soon" rather than hidden, so the roadmap is visible —
-                but they are not clickable, because the backend refuses them
-                and a disabled control is honest where a broken one is not. */}
-            <Badge tone="neutral">{t('websiteSoon')}</Badge>
+            <Button size="sm" variant="secondary" onClick={() => setDraft({ kind: 'website' })}>
+              {t('addWebsite')}
+            </Button>
+            {/* PDF is a badge, not a button. The backend refuses the type, and
+                a control that looks available but is not is worse than one
+                that says plainly it is coming. */}
             <Badge tone="neutral">{t('pdfSoon')}</Badge>
           </div>
         )}
@@ -123,6 +135,11 @@ export function SourcesCard({ workspaceId }: { workspaceId: string }) {
                 <span className="text-xs text-muted">{plural(lang, 'passages', s.pages)}</span>
               )}
               <Badge tone={STATUS_TONE[s.status]}>{t(STATUS_LABEL[s.status])}</Badge>
+              {s.type === 'website' && (
+                <Button size="sm" variant="ghost" onClick={() => refresh(s.id)}>
+                  {t('refresh')}
+                </Button>
+              )}
               <Button size="sm" variant="ghost" onClick={() => remove(s.id)}>
                 {t('delete')}
               </Button>
@@ -147,7 +164,7 @@ function SourceForm({
   onDone,
   onCancel,
 }: {
-  kind: 'text' | 'faq';
+  kind: 'text' | 'faq' | 'website';
   workspaceId: string;
   onDone: () => void;
   onCancel: () => void;
@@ -155,6 +172,7 @@ function SourceForm({
   const { t } = useLanguage();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [url, setUrl] = useState('');
   const [pairs, setPairs] = useState([{ question: '', answer: '' }]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -173,7 +191,7 @@ function SourceForm({
           workspace: workspaceId,
           type: kind,
           title,
-          ...(kind === 'text' ? { body } : { pairs }),
+          ...(kind === 'website' ? { url } : kind === 'text' ? { body } : { pairs }),
         },
       });
       onDone();
@@ -186,18 +204,36 @@ function SourceForm({
 
   return (
     <form onSubmit={submit} className="mt-4 flex flex-col gap-3 rounded-xl bg-surface-2 p-4">
-      <label className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium text-muted">{t('sourceTitleLabel')}</span>
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          dir="auto"
-          required
-          className="rounded-lg border border-border-soft bg-surface px-3 py-2 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        />
-      </label>
+      {kind !== 'website' && (
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-muted">{t('sourceTitleLabel')}</span>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            dir="auto"
+            required
+            className="rounded-lg border border-border-soft bg-surface px-3 py-2 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          />
+        </label>
+      )}
 
-      {kind === 'text' ? (
+      {kind === 'website' ? (
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-muted">{t('websiteUrlLabel')}</span>
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            type="url"
+            placeholder="https://example.com"
+            /* A URL is never RTL, even on an Arabic page. */
+            dir="ltr"
+            required
+            className="rounded-lg border border-border-soft bg-surface px-3 py-2 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          />
+          <span className="text-xs text-muted">{t('websiteHint')}</span>
+          <span className="text-xs text-muted">{t('crawlNote')}</span>
+        </label>
+      ) : kind === 'text' ? (
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-muted">{t('sourceBodyLabel')}</span>
           <textarea
