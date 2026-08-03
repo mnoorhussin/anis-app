@@ -14,12 +14,14 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/ingest"
+	"github.com/mnoorhussin/anis-app/pocketbase/internal/llm"
 )
 
 // Deps are the services the routes need.
 type Deps struct {
 	Ingest  *ingest.Service
 	Crawler *ingest.Crawler
+	LLM     *llm.Registry
 }
 
 // Register mounts every custom route.
@@ -48,7 +50,10 @@ func Register(e *core.ServeEvent, deps Deps) {
 	// the Origin allow-list, per-visitor rate limiting, and the fact that they
 	// can only ever touch the one workspace the key names.
 	g.GET("/widget/{key}/config", handleWidgetConfig)
-	g.POST("/widget/{key}/message", handleWidgetMessage)
+	g.POST("/widget/{key}/message", handleWidgetMessage(deps))
+	// The browser preflights the POST because it carries a JSON content-type.
+	g.OPTIONS("/widget/{key}/config", handleWidgetPreflight)
+	g.OPTIONS("/widget/{key}/message", handleWidgetPreflight)
 
 	// --- Billing -----------------------------------------------------------
 	//
@@ -56,49 +61,6 @@ func Register(e *core.ServeEvent, deps Deps) {
 	// signature header, which must be verified against the RAW body before
 	// anything is parsed.
 	g.POST("/stripe/webhook", handleStripeWebhook)
-}
-
-// handleWidgetConfig returns the public widget configuration for a key.
-//
-// NOT IMPLEMENTED. What it must do:
-//   - resolve the key to a workspace without leaking whether an unknown key
-//     exists;
-//   - check the request Origin against the workspace's allowed_domains and
-//     refuse otherwise — this is what stops a competitor embedding someone
-//     else's assistant on their own site and burning their reply allowance;
-//   - return ONLY presentation fields. Never the knowledge base, never the
-//     source list, never usage numbers.
-func handleWidgetConfig(e *core.RequestEvent) error {
-	return e.JSON(http.StatusNotImplemented, map[string]string{
-		"error": "not implemented",
-	})
-}
-
-// handleWidgetMessage answers a visitor's question, streaming the reply.
-//
-// NOT IMPLEMENTED. The order of operations matters and is the reason this is
-// documented before it is written:
-//
-//  1. Resolve key → workspace; check Origin; rate-limit by visitor and by key.
-//  2. Check the plan allowance and the hard spending cap BEFORE generating.
-//     Over the cap, do not generate — collect contact details for a human
-//     instead. A capped account must never produce a billable reply.
-//  3. Detect the message language (internal/lang).
-//  4. Embed the query and retrieve within the workspace (internal/rag). The
-//     workspace id comes from the resolved key, never from the request body.
-//  5. If nothing clears the confidence floor, return the refusal from
-//     internal/prompt WITHOUT calling the model, and record a knowledge gap.
-//  6. Otherwise stream the model's reply over SSE, recording which sources
-//     were used and the outcome, so analytics are reconstructed from evidence.
-//  7. Meter exactly one AI reply — only when one was actually generated. A
-//     refusal is not a billable reply.
-//
-// Note for deployment: SSE needs response buffering disabled at the proxy, or
-// the whole reply lands at once. See deploy/Caddyfile.
-func handleWidgetMessage(e *core.RequestEvent) error {
-	return e.JSON(http.StatusNotImplemented, map[string]string{
-		"error": "not implemented",
-	})
 }
 
 // handleStripeWebhook applies subscription and payment events.

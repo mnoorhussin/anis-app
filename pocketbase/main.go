@@ -33,6 +33,7 @@ import (
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/db"
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/fetch"
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/ingest"
+	"github.com/mnoorhussin/anis-app/pocketbase/internal/llm"
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/rag"
 	_ "github.com/mnoorhussin/anis-app/pocketbase/migrations"
 	"github.com/mnoorhussin/anis-app/pocketbase/routes"
@@ -67,8 +68,14 @@ func main() {
 	ingest.RegisterHooks(app)
 
 	svc := &ingest.Service{Embedder: newEmbedder(app)}
+
+	// Provider-agnostic by construction: nothing outside internal/llm imports
+	// a vendor SDK, so the grounding prompt is one implementation rather than
+	// one per provider.
+	registry := llm.NewRegistry(newProvider(app))
 	deps := routes.Deps{
 		Ingest: svc,
+		LLM:    registry,
 		Crawler: &ingest.Crawler{
 			Ingest: svc,
 			// A named User-Agent with a contact URL, so a site owner can
@@ -157,4 +164,22 @@ func newFetchClient(app core.App) *fetch.Client {
 		return fetch.NewAllowingPrivateAddresses(crawlerUserAgent(), 0)
 	}
 	return fetch.New(crawlerUserAgent(), 0)
+}
+
+// newProvider returns the configured LLM provider.
+//
+// Gated on an explicit flag rather than on a missing key, for the same reason
+// as the other escape hatches: a missing key in production is exactly when a
+// silent fallback does the most damage. Echo is safe to fall back to only
+// because it produces no prose — see its documentation.
+func newProvider(app core.App) llm.Provider {
+	if os.Getenv("ANIS_DEV_ECHO_LLM") == "1" {
+		app.Logger().Warn("USING THE DEV ECHO PROVIDER - no model is called and " +
+			"replies are raw retrieved passages. Never set ANIS_DEV_ECHO_LLM in production.")
+		return &llm.Echo{}
+	}
+	return &llm.Anthropic{
+		APIKey: os.Getenv("ANTHROPIC_API_KEY"),
+		Model:  os.Getenv("ANIS_LLM_MODEL"),
+	}
 }

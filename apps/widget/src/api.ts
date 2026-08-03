@@ -56,30 +56,95 @@ export async function loadConfig(apiUrl: string, key: string): Promise<PublicWid
   }
 }
 
+export interface StreamDone {
+  outcome: string;
+  conversationId: string;
+  /**
+   * True when the assistant could not answer. The widget offers a person
+   * rather than leaving the visitor at a dead end — which is the entire point
+   * of refusing well rather than guessing.
+   */
+  offerHandoff: boolean;
+}
+
 export interface StreamCallbacks {
   onToken(text: string): void;
   /** Fired once when the reply is complete. */
-  onDone(meta: { outcome: string; conversationId: string }): void;
+  onDone(meta: StreamDone): void;
   onError(): void;
 }
 
 /**
  * Send a message and stream the reply.
  *
- * Server-sent events rather than a WebSocket: the reply is one-directional and
- * short-lived, SSE survives proxies that mangle upgrades, and it reconnects on
- * its own. Note that Caddy must have response buffering disabled on this route
- * or the whole reply arrives at once — see deploy/Caddyfile.
+ * Server-sent events over `fetch`, not `EventSource`. EventSource cannot issue
+ * a POST and cannot set headers, and the question has to go in a body — so the
+ * SSE framing is parsed by hand here.
  *
- * NOT IMPLEMENTED. The endpoint does not exist yet; this is the shape the
- * backend must provide, kept here so the two are designed together.
+ * The parser keeps a buffer across reads because a network chunk boundary
+ * falls wherever TCP puts it, not on event boundaries: a single event can
+ * arrive split down the middle, and two events can arrive together. Parsing
+ * each read in isolation drops text intermittently and only under load, which
+ * is the worst way to find out.
  */
 export async function sendMessage(
-  _apiUrl: string,
-  _key: string,
-  _body: { conversationId: string | null; text: string },
+  apiUrl: string,
+  key: string,
+  body: { conversationId: string | null; text: string; visitor: string },
   callbacks: StreamCallbacks,
 ): Promise<void> {
-  callbacks.onError();
-  throw new Error('not implemented: POST /api/anis/widget/:key/message');
+  let res: Response;
+  try {
+    res = await fetch(`${apiUrl}/api/anis/widget/${encodeURIComponent(key)}/message`, {
+      method: 'POST',
+      credentials: 'omit',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    callbacks.onError();
+    return;
+  }
+
+  if (!res.ok || !res.body) {
+    callbacks.onError();
+    return;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    // `stream: true` so a multi-byte character split across reads is held
+    // back rather than decoded into a replacement character. Arabic is
+    // two bytes per letter in UTF-8, so this is not a rare edge case here —
+    // it is most letters.
+    buffer += decoder.decode(value, { stream: true });
+
+    let split: number;
+    while ((split = buffer.indexOf('\n\n')) >= 0) {
+      const block = buffer.slice(0, split);
+      buffer = buffer.slice(split + 2);
+
+      const event = /^event: (.+)$/m.exec(block)?.[1];
+      const data = /^data: (.+)$/m.exec(block)?.[1];
+      if (!event || !data) continue;
+
+      try {
+        const parsed: unknown = JSON.parse(data);
+        if (event === 'token') {
+          callbacks.onToken((parsed as { text: string }).text);
+        } else if (event === 'done') {
+          callbacks.onDone(parsed as StreamDone);
+        }
+      } catch {
+        // A malformed event is skipped rather than aborting the stream: the
+        // rest of the reply is still worth showing.
+      }
+    }
+  }
 }
