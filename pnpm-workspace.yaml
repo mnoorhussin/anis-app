@@ -1,0 +1,38 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  # The Go backend carries a package.json so that `pnpm dev` can start it
+  # alongside the two Vite servers, and so Turborepo sees it as a task graph
+  # node. It has no JavaScript dependencies — its scripts shell out to `go`.
+  - "pocketbase"
+
+# pnpm does not run dependency lifecycle scripts unless they are allowed here.
+# That default is right — a postinstall script is arbitrary code execution from
+# the registry — so each entry needs a reason.
+#
+#   better-sqlite3  pulled in by pocketbase-typegen, which generates our
+#                   TypeScript record types by reading pb_data/data.db
+#                   directly. It needs its postinstall to fetch or build the
+#                   native binding. Dev-only: it never ships to a browser or
+#                   to the server.
+#
+# esbuild and @tailwindcss/oxide ship prebuilt binaries as separate
+# platform-specific packages and do NOT need a build script under pnpm, so they
+# are deliberately absent.
+allowBuilds:
+  better-sqlite3: true
+
+# Added automatically by pnpm: these were published more recently than the
+# default minimum release age and have been reviewed and accepted.
+minimumReleaseAgeExclude:
+  - "@typescript-eslint/eslint-plugin@8.66.0"
+  - "@typescript-eslint/parser@8.66.0"
+  - "@typescript-eslint/project-service@8.66.0"
+  - "@typescript-eslint/scope-manager@8.66.0"
+  - "@typescript-eslint/tsconfig-utils@8.66.0"
+  - "@typescript-eslint/type-utils@8.66.0"
+  - "@typescript-eslint/types@8.66.0"
+  - "@typescript-eslint/typescript-estree@8.66.0"
+  - "@typescript-eslint/utils@8.66.0"
+  - "@typescript-eslint/visitor-keys@8.66.0"
+  - typescript-eslint@8.66.0

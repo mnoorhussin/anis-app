@@ -1,0 +1,30 @@
+{
+  "name": "@anis/widget",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The embeddable Anis chat widget — cdn.anis.chat/widget.js. Preact in a shadow root.",
+  "scripts": {
+    "dev": "vite --port 5174 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --port 5174 --strictPort",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "//size": "Fails the build if the bundle grows past budget. A chat widget that slows a customer's storefront gets removed from it.",
+    "size": "node scripts/check-size.mjs",
+    "clean": "rimraf dist .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@anis/tokens": "workspace:*",
+    "@anis/types": "workspace:*",
+    "preact": "^10.29.8"
+  },
+  "devDependencies": {
+    "@anis/config": "workspace:*",
+    "@preact/preset-vite": "^2.10.6",
+    "@tailwindcss/vite": "^4.3.3",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.2.0"
+  }
+}

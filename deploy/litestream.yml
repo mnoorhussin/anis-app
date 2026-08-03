@@ -1,0 +1,72 @@
+# /etc/litestream.yml — continuous SQLite replication to OVH Object Storage.
+#
+# Credentials come from /etc/litestream.env (mode 0600, root-owned):
+#   LITESTREAM_ACCESS_KEY_ID=...
+#   LITESTREAM_SECRET_ACCESS_KEY=...
+#
+# Use a dedicated S3 user with WRITE-ONLY access to the bucket. These
+# credentials sit on the same machine as the data they protect; an attacker who
+# reaches them should not also be able to delete the backups.
+#
+# ---------------------------------------------------------------------------
+# THIS IS NOT A COMPLETE BACKUP ON ITS OWN.
+#
+# Litestream replicates SQLite and nothing else. pb_data/storage — every PDF
+# and logo a customer has uploaded — is invisible to it. Restoring from
+# Litestream alone gives you a database full of file references pointing at
+# files that no longer exist.
+#
+# Run BOTH:
+#   - Litestream, continuously, for the databases (RPO of seconds, point-in-time
+#     restore).
+#   - PocketBase's own nightly backup to OVH, for a self-contained artifact that
+#     includes uploaded files.
+# Neither is sufficient alone. See README.md in this directory.
+# ---------------------------------------------------------------------------
+
+logging:
+  level: info
+
+# Prometheus metrics, loopback only.
+addr: "127.0.0.1:9090"
+
+# Required for `litestream sync|status|start|stop`. Disabled by default, and
+# the deploy script calls `litestream sync`, so it must be on.
+socket:
+  enabled: true
+  path: /run/litestream/litestream.sock
+  permissions: 0600
+
+dbs:
+  # PocketBase has exactly two databases. There is no logs.db — pre-v0.23
+  # tutorials list one, and Litestream will silently watch a path that does not
+  # exist.
+  - path: /var/lib/anis/pb_data/data.db
+    # `replica:` singular. Litestream v0.5 replaced the `replicas:` list and
+    # hard-errors on more than one replica per database. Most tutorials online
+    # predate that change, as does Litestream's own PROVIDER_COMPATIBILITY.md.
+    replica:
+      type: s3
+      bucket: anis-pb-backups
+      path: data.db
+      # Region must match the endpoint hostname, lowercase. A mismatch produces
+      # SigV4 errors that read like bad credentials.
+      endpoint: https://s3.gra.io.cloud.ovh.net
+      region: gra
+      force-path-style: true
+
+  - path: /var/lib/anis/pb_data/auxiliary.db
+    replica:
+      type: s3
+      bucket: anis-pb-backups
+      path: auxiliary.db
+      endpoint: https://s3.gra.io.cloud.ovh.net
+      region: gra
+      force-path-style: true
+      # If replication fails with InvalidArgument or MissingContentLength,
+      # uncomment this. OVH is not listed in Litestream's provider-compatibility
+      # docs, so whether it needs payload signing is unverified — it is the fix
+      # that Backblaze B2 and Hetzner needed. Confirm replication works before
+      # trusting this setup: run `litestream replicate`, check LTX objects
+      # appear in the bucket, then `litestream restore -dry-run`.
+      # sign-payload: true

@@ -1,0 +1,42 @@
+# /etc/systemd/system/litestream.service
+#
+# Deliberately a SEPARATE unit rather than `litestream replicate -exec
+# "anis serve"`.
+#
+# With -exec, Litestream exits when its subprocess exits — so every deploy or
+# restart of the app also tears down replication, and a crash-looping app means
+# a crash-looping replicator. Two units let replication keep flushing across
+# app restarts. The -exec form is designed for a container with one PID 1, not
+# for a systemd host.
+
+[Unit]
+Description=Litestream — continuous SQLite replication
+Documentation=https://litestream.io/
+After=network-online.target
+Wants=network-online.target
+# Start alongside the app, but do NOT bind to it: replication should survive
+# the app being stopped.
+After=anis.service
+
+[Service]
+Type=simple
+User=anis
+Group=anis
+EnvironmentFile=/etc/litestream.env
+RuntimeDirectory=litestream
+RuntimeDirectoryMode=0750
+ExecStart=/usr/bin/litestream replicate -config /etc/litestream.yml
+Restart=always
+RestartSec=5
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# Needs to read the databases and write the -shm/-wal sidecars.
+ReadWritePaths=/var/lib/anis
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

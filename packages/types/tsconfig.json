@@ -1,0 +1,4 @@
+{
+  "extends": "@anis/config/tsconfig/base.json",
+  "include": ["src/**/*.ts", "vitest.config.ts"]
+}

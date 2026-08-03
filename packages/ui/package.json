@@ -1,0 +1,31 @@
+{
+  "name": "@anis/ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared React components for the Anis dashboard.",
+  "//": "React only. The widget deliberately does NOT consume this — it runs Preact inside a shadow root with a hard bundle-size budget, and sharing components would drag React's semantics and these components' Tailwind classes into it. The two surfaces share tokens, not components.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rimraf .turbo *.tsbuildinfo"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "dependencies": {
+    "@anis/tokens": "workspace:*"
+  },
+  "devDependencies": {
+    "@anis/config": "workspace:*",
+    "@types/react": "^19.2.7",
+    "react": "^19.2.8"
+  }
+}

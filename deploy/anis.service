@@ -1,0 +1,85 @@
+# /etc/systemd/system/anis.service
+#
+# The Anis backend on the OVH box. Install with:
+#   sudo cp deploy/anis.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now anis
+
+[Unit]
+Description=Anis PocketBase API
+Documentation=https://pocketbase.io/docs/going-to-production/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=anis
+Group=anis
+
+# StateDirectory creates and chowns /var/lib/anis, and — importantly — keeps it
+# writable under ProtectSystem=strict, which otherwise makes the whole
+# filesystem read-only. PocketBase fails at startup creating
+# pb_data/.pb_temp_to_delete if this is missing; it is the most common way a
+# hardened unit breaks PocketBase.
+StateDirectory=anis
+StateDirectoryMode=0750
+WorkingDirectory=/var/lib/anis
+
+# Holds PB_ENCRYPTION_KEY (exactly 32 chars), ANTHROPIC_API_KEY, STRIPE_*.
+# Mode 0600, owned root:anis. Never in git — see .env.example for the list.
+EnvironmentFile=/etc/anis/anis.env
+
+# /opt/anis/current is a symlink swapped atomically by deploy.sh. systemd
+# resolves ExecStart at exec time, so a restart picks up the new target.
+#
+# Bind 127.0.0.1 ONLY. Caddy terminates TLS. Never pass a domain argument to
+# `serve`: with a domain, PocketBase switches to 0.0.0.0:80/:443 and starts its
+# own Let's Encrypt client, which then fights Caddy for those ports.
+ExecStart=/opt/anis/current/anis serve \
+  --http=127.0.0.1:8090 \
+  --dir=/var/lib/anis/pb_data \
+  --encryptionEnv=PB_ENCRYPTION_KEY
+
+Restart=always
+RestartSec=2
+# PocketBase's own graceful budget is about one second; this is just slack.
+TimeoutStopSec=20
+KillMode=mixed
+
+# One file descriptor per open realtime/SSE subscriber.
+LimitNOFILE=65535
+
+# ---- hardening ----
+# Every directive below has been checked against what PocketBase actually does.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+# Blocks /home, /root and /run/user. Keep pb_data under /var/lib, not in a home
+# directory, or this silently breaks the app.
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+# Safe ONLY because we bind 8090, above 1024. Binding :80 or :443 directly
+# would need AmbientCapabilities=CAP_NET_BIND_SERVICE.
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027
+
+# Redundant with StateDirectory, but mandatory if that is ever removed.
+ReadWritePaths=/var/lib/anis
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,100 @@
+@import 'tailwindcss';
+
+/* ==========================================================================
+   Widget stylesheet — lives INSIDE the shadow root.
+
+   Two things make this different from the dashboard's app.css:
+
+   1. Tailwind's `@theme` compiles to a `:root { … }` block, and `:root` matches
+      nothing inside a shadow root. So this file declares no concrete colour
+      values; it maps utility names to custom properties with `@theme inline`,
+      and `mountStyles()` stamps the actual values onto `:host` at runtime.
+
+   2. Those runtime values are per-workspace. A business picks its own accent
+      colour, so the widget's palette is configuration, not a build-time token.
+      `@anis/tokens` supplies the defaults.
+
+   Preflight is included and is safe here: it is scoped to the shadow tree, so
+   it cannot reset anything on the host page. The reverse is also true and is
+   the reason for the shadow root in the first place — the customer's own CSS
+   cannot reach in and break the widget.
+   ========================================================================== */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border-soft: var(--border-soft);
+  --color-accent: var(--accent);
+  --color-accent-contrast: var(--accent-contrast);
+}
+
+@theme {
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.75rem;
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-typing-dot: typing-dot 1.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+
+  @keyframes typing-dot {
+    0%,
+    60%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.45;
+    }
+    30% {
+      transform: translateY(-3px);
+      opacity: 1;
+    }
+  }
+}
+
+/* The host element is a fixed-position layer over the customer's page. A very
+   high z-index is unavoidable here — we are competing with cookie banners. */
+:host {
+  position: fixed;
+  inset-block-end: 1rem;
+  z-index: 2147483000;
+  /* No webfonts: an embed must not cost the customer's page 350 KB of fonts,
+     and @font-face declared inside a shadow root is not applied to that tree
+     anyway — font loading is document-scoped. The system stack renders Arabic
+     acceptably on every current OS. */
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    'Noto Sans Arabic',
+    sans-serif;
+  line-height: 1.6;
+  /* Only the widget's own boxes should capture clicks; the fixed layer itself
+     must let the page through. Children re-enable it. */
+  pointer-events: none;
+}
+
+:host > * {
+  pointer-events: auto;
+}
+
+:host([data-position='right']) {
+  inset-inline-end: 1rem;
+}
+
+:host([data-position='left']) {
+  inset-inline-start: 1rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

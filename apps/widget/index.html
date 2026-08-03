@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Widget harness — not shipped</title>
+    <style>
+      /* Deliberately opinionated and hostile: aggressive resets, a loud
+         font, and a high-z-index banner. If the widget survives this page it
+         will survive a real customer's stylesheet. The shadow root is what
+         makes that true — verify it stays true. */
+      * {
+        box-sizing: border-box;
+        font-family: 'Comic Sans MS', cursive;
+      }
+      button,
+      input {
+        all: revert;
+        border: 4px dashed magenta !important;
+        background: yellow !important;
+      }
+      body {
+        margin: 0;
+        padding: 3rem;
+        background: #eef;
+        color: #123;
+      }
+      .banner {
+        position: fixed;
+        inset-inline: 0;
+        inset-block-end: 0;
+        z-index: 2147483647;
+        background: #123;
+        color: #fff;
+        padding: 0.75rem 1rem;
+        font-size: 0.85rem;
+      }
+      main {
+        max-width: 42rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Pretend customer site</h1>
+      <p>
+        This page exists only to develop the widget against. It is not built and not deployed —
+        <code>vite build</code> runs in library mode and emits <code>widget.js</code> alone.
+      </p>
+      <p>Things to check here:</p>
+      <ul>
+        <li>The widget ignores this page's CSS (no Comic Sans, no magenta borders inside it).</li>
+        <li>This page is unaffected by the widget's Tailwind preflight.</li>
+        <li>The launcher sits above the fixed banner below.</li>
+        <li>Typing Arabic in the composer flips the panel to RTL.</li>
+      </ul>
+      <p lang="ar" dir="rtl">فقرة عربية للتحقق من أن الصفحة المضيفة تعرض العربية بشكل صحيح.</p>
+    </main>
+
+    <div class="banner">A cookie banner, competing for z-index.</div>
+
+    <!-- Mirrors the real install snippet. `data-anis-api` is dev-only; in
+         production the API URL is baked into the bundle. -->
+    <script
+      type="module"
+      src="/src/embed.tsx"
+      data-anis-key="dev-key"
+      data-anis-api="http://127.0.0.1:8090"
+    ></script>
+  </body>
+</html>

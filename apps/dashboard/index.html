@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/logo-mark.svg" />
+    <title>Anis</title>
+    <meta name="description" content="Anis — Arabic-first AI customer support." />
+    <!-- The dashboard is behind auth; there is nothing here for a crawler. -->
+    <meta name="robots" content="noindex, nofollow" />
+    <script>
+      // Applies the stored theme before first paint. Without this, a dark-mode
+      // user sees a white flash on every load, which on a support inbox people
+      // keep open all day is genuinely unpleasant.
+      (function () {
+        try {
+          var stored = localStorage.getItem('anis-theme');
+          if (stored === 'dark' || stored === 'light') {
+            document.documentElement.setAttribute('data-theme', stored);
+          }
+        } catch (_) {
+          /* private mode; fall through to the system preference */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

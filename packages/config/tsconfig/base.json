@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "//": "Self-contained on purpose. This file is reached through a pnpm symlink (packages/*/node_modules/@anis/config), and a relative `extends` out of the package resolves against the symlink path rather than the real one — tsc copes, Vite's oxc transform does not, and the failure is 'tsconfig not found' in node_modules. Keeping every option here means the only `extends` that ever crosses a package boundary is this file itself, which resolvers handle via normal package resolution.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": false,
+
+    "noEmit": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+
+    "forceConsistentCasingInFileNames": true,
+    "useDefineForClassFields": true
+  },
+  "exclude": ["node_modules", "dist", ".turbo"]
+}

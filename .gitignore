@@ -1,0 +1,52 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+.output/
+*.tsbuildinfo
+
+# turbo
+.turbo/
+
+# go
+pocketbase/anis
+pocketbase/anis.exe
+pocketbase/pocketbase
+pocketbase/pocketbase.exe
+
+# PocketBase runtime data — SQLite databases, uploaded source files, backups.
+# Never commit these: they hold customer conversations and knowledge sources.
+pocketbase/pb_data/
+pocketbase/pb_public/
+
+# environment variables
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# secrets that must never be committed
+deploy/*.secret
+deploy/secrets/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# test / tooling artifacts
+coverage/
+.vitest/
+playwright-report/
+test-results/
+scripts/.shots/

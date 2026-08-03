@@ -1,0 +1,30 @@
+{
+  "name": "@anis/tokens",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Anis design tokens: brand colours, type scale, motion, fonts and the logo mark.",
+  "//": "Consumed as source. There is no build step — the apps' bundlers compile the .ts and process the .css, which is what lets a token change show up in `pnpm dev` without rebuilding a package first.",
+  "exports": {
+    ".": "./src/tokens.ts",
+    "./theme.css": "./src/theme.css",
+    "./fonts.css": "./src/fonts.css",
+    "./fonts/*": "./fonts/*",
+    "./assets/*": "./assets/*"
+  },
+  "files": [
+    "src",
+    "fonts",
+    "assets"
+  ],
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rimraf .turbo *.tsbuildinfo"
+  },
+  "devDependencies": {
+    "@anis/config": "workspace:*",
+    "@types/node": "^26.1.2"
+  }
+}

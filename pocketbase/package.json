@@ -1,0 +1,14 @@
+{
+  "name": "@anis/pocketbase",
+  "version": "0.0.0",
+  "private": true,
+  "//": "Not a JavaScript package. It carries a package.json so `pnpm dev` starts the Go backend alongside the two Vite servers and Turborepo can see it in the task graph. Every script shells out to the Go toolchain.",
+  "scripts": {
+    "dev": "go run -tags no_default_driver . serve --http=127.0.0.1:8090",
+    "build": "go build -tags no_default_driver -o ./anis .",
+    "lint": "go vet -tags no_default_driver ./...",
+    "typecheck": "go vet -tags no_default_driver ./...",
+    "test": "go test -tags no_default_driver ./...",
+    "clean": "go clean && rimraf anis anis.exe .turbo"
+  }
+}

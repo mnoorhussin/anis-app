@@ -1,0 +1,26 @@
+{
+  "name": "@anis/types",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared domain vocabulary, plan catalogue and language detection.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./pocketbase": "./src/pocketbase.generated.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rimraf .turbo *.tsbuildinfo",
+    "//generate": "Regenerates record types from the LIVE PocketBase schema. Start the backend first (`pnpm --filter @anis/pocketbase dev`) and create a superuser. The URL and credentials are local-only; never point this at production.",
+    "generate": "pocketbase-typegen --db ../../pocketbase/pb_data/data.db --out ./src/pocketbase.generated.ts"
+  },
+  "devDependencies": {
+    "@anis/config": "workspace:*",
+    "pocketbase-typegen": "^1.5.0"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "@anis/dashboard",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Anis dashboard SPA — app.anis.chat. Client-rendered React, talks to PocketBase.",
+  "scripts": {
+    "dev": "vite --port 5173 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --port 5173 --strictPort",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rimraf dist .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@anis/tokens": "workspace:*",
+    "@anis/types": "workspace:*",
+    "@anis/ui": "workspace:*",
+    "pocketbase": "^0.27.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@anis/config": "workspace:*",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.2.0"
+  }
+}

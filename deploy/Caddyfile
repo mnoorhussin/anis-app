@@ -1,0 +1,127 @@
+# /etc/caddy/Caddyfile — Anis, one OVH box, three subdomains.
+#
+# Caddy handles TLS for all three. PocketBase stays on 127.0.0.1:8090 and never
+# faces the internet directly.
+
+{
+	email ops@anis.chat
+	# Only if something else (a CDN, a load balancer) is ever put in FRONT:
+	# servers { trusted_proxies static private_ranges }
+}
+
+(sec) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "SAMEORIGIN"
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		-Server
+	}
+}
+
+# ---------------------------------------------------------------- api. -----
+api.anis.chat {
+	import sec
+
+	# Compression is allowlisted by content type on purpose.
+	#
+	# A bare `encode zstd gzip` matches `Content-Type text/*`, which includes
+	# text/event-stream — and the default minimum_length of 512 makes Caddy
+	# withhold output until 512 bytes accumulate. The chat reply would then
+	# arrive in lumps, or look hung, which is precisely the effect streaming
+	# exists to avoid.
+	encode zstd gzip {
+		match {
+			header Content-Type application/json*
+			header Content-Type text/html*
+			header Content-Type text/plain*
+			header Content-Type application/javascript*
+		}
+	}
+
+	reverse_proxy 127.0.0.1:8090 {
+		# Response buffering off — the directive that makes SSE stream.
+		#
+		# Caddy does not buffer by default and force-flushes text/event-stream
+		# on its own, so this is belt and braces; it is also the explicit,
+		# reviewable answer to "is buffering disabled?". Side effect worth
+		# knowing: it stops Caddy cancelling the upstream request when a client
+		# disconnects early, so PocketBase holds subscriber goroutines a little
+		# longer.
+		flush_interval -1
+
+		# PocketBase's realtime MaxTimeout is 30 minutes. Anything lower here
+		# cuts healthy subscriptions.
+		stream_timeout 35m
+		# Don't drop every subscriber on `caddy reload`.
+		stream_close_delay 5m
+
+		header_up X-Real-IP {remote_host}
+
+		# PocketBase cannot drain connections — its shutdown budget is about a
+		# second — so a deploy restart severs in-flight requests. Retrying for
+		# 10s turns that into a pause instead of a 502.
+		lb_try_duration 10s
+		lb_try_interval 250ms
+	}
+}
+
+# ---------------------------------------------------------------- app. -----
+app.anis.chat {
+	import sec
+	root * /srv/anis/app
+	encode zstd gzip
+
+	# Vite content-hashes every asset, so they can be cached forever.
+	@hashed path_regexp \.[0-9a-zA-Z_-]{8,}\.(js|mjs|css|woff2|png|svg|webp)$
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+
+	# The entry point must never be cached, or a deploy never reaches anyone.
+	header /index.html Cache-Control "no-cache, must-revalidate"
+
+	# SPA deep links.
+	try_files {path} /index.html
+	file_server
+}
+
+# ---------------------------------------------------------------- cdn. -----
+cdn.anis.chat {
+	root * /srv/anis/cdn
+	encode zstd gzip
+
+	# The widget is embedded on domains we do not control, so it must be
+	# readable cross-origin. This serves one static, public JavaScript file —
+	# there is nothing here to protect with an origin check. Access control for
+	# the widget happens on api.anis.chat, against the workspace's own
+	# allow-list.
+	header {
+		Access-Control-Allow-Origin "*"
+		Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+		Access-Control-Allow-Headers "*"
+		Access-Control-Max-Age "86400"
+		Cross-Origin-Resource-Policy "cross-origin"
+		Timing-Allow-Origin "*"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+
+	@preflight method OPTIONS
+	respond @preflight 204
+
+	# Short cache on the embed entry point, deliberately.
+	#
+	# A business pastes this URL into its site once and never touches it again.
+	# If it were immutable-cached, a widget fix would take a year to reach their
+	# visitors and there is no way to purge someone else's browser cache.
+	#
+	# Next step (not yet built): split into a tiny stable loader at /widget.js
+	# and an immutable hashed payload at /v/<hash>/bundle.js, so the bytes are
+	# cached forever and only a ~1 KB loader is revalidated.
+	header /widget.js Cache-Control "public, max-age=60, must-revalidate"
+
+	@immutable path_regexp ^/v/[0-9a-f]{8,}/
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	file_server
+}
