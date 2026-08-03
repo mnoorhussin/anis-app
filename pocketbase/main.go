@@ -29,6 +29,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/pocketbase/pocketbase/tools/osutils"
 
+	"github.com/mnoorhussin/anis-app/pocketbase/internal/bootstrap"
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/db"
 	_ "github.com/mnoorhussin/anis-app/pocketbase/migrations"
 	"github.com/mnoorhussin/anis-app/pocketbase/routes"
@@ -52,6 +53,10 @@ func main() {
 		Automigrate:  osutils.IsProbablyGoRun(),
 		Dir:          "migrations",
 	})
+
+	// Every new user gets an account, a workspace and an owner membership,
+	// atomically with the user row itself.
+	bootstrap.Register(app)
 
 	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		// Fail fast rather than serving an assistant that cannot retrieve.
