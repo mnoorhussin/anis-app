@@ -1,11 +1,10 @@
 /**
  * Dashboard copy, in both languages.
  *
- * A plain object rather than an i18n library. The dashboard's string count is
- * small and the interesting problem here is not pluralisation or
- * interpolation — it is direction, font and tone, which the token system
- * already handles. Reach for a library when message formatting genuinely needs
- * one, not before.
+ * A plain object rather than an i18n library. The string count is small, and
+ * the one piece of real message formatting — Arabic's six plural categories —
+ * is handled below with the built-in Intl.PluralRules. Reach for a library if
+ * that stops being enough, not before.
  *
  * Arabic is the primary market, so the Arabic string is written first and read
  * as the real copy; the English is its counterpart, not its source.
@@ -36,6 +35,29 @@ export const strings = {
     domainsTitle: 'النطاقات المسموح بها',
     domainsEmpty: 'لم تضف أي نطاق بعد، لذلك لن تظهر أداة المحادثة على أي موقع. أضف نطاقك لتفعيلها.',
     notBuiltYet: 'غير متاح بعد',
+    sourcesTitle: 'مصادر المعرفة',
+    sourcesLead:
+      'أنيس يجيب من هذه المصادر فقط. إذا لم يجد الإجابة، سيقولها بوضوح ويعرض التحويل إلى موظف.',
+    sourcesEmpty: 'لا توجد مصادر بعد. أضف نصاً أو أسئلة شائعة ليبدأ أنيس بالإجابة.',
+    addText: 'إضافة نص',
+    addFaq: 'إضافة أسئلة شائعة',
+    sourceTitleLabel: 'العنوان',
+    sourceBodyLabel: 'المحتوى',
+    question: 'السؤال',
+    answer: 'الإجابة',
+    addPair: 'إضافة سؤال آخر',
+    save: 'حفظ',
+    saving: 'جارٍ الحفظ…',
+    cancel: 'إلغاء',
+    delete: 'حذف',
+    statusQueued: 'في الانتظار',
+    statusFetching: 'جارٍ الجلب',
+    statusProcessing: 'جارٍ المعالجة',
+    statusReady: 'جاهز',
+    statusFailed: 'فشل',
+    statusStale: 'يحتاج تحديث',
+    websiteSoon: 'موقع إلكتروني (قريباً)',
+    pdfSoon: 'ملف PDF (قريباً)',
     signingIn: 'جارٍ تسجيل الدخول…',
     creating: 'جارٍ الإنشاء…',
     passwordsDiffer: 'كلمتا المرور غير متطابقتين',
@@ -67,6 +89,29 @@ export const strings = {
     domainsEmpty:
       "You haven't added a domain yet, so the widget won't load anywhere. Add your domain to switch it on.",
     notBuiltYet: 'Not built yet',
+    sourcesTitle: 'Knowledge sources',
+    sourcesLead:
+      'Anis answers only from these sources. When it cannot find an answer it says so and offers to pass the question to a person.',
+    sourcesEmpty: 'No sources yet. Add some text or an FAQ so Anis has something to answer from.',
+    addText: 'Add text',
+    addFaq: 'Add FAQ',
+    sourceTitleLabel: 'Title',
+    sourceBodyLabel: 'Content',
+    question: 'Question',
+    answer: 'Answer',
+    addPair: 'Add another question',
+    save: 'Save',
+    saving: 'Saving…',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    statusQueued: 'Queued',
+    statusFetching: 'Fetching',
+    statusProcessing: 'Processing',
+    statusReady: 'Ready',
+    statusFailed: 'Failed',
+    statusStale: 'Needs refresh',
+    websiteSoon: 'Website (soon)',
+    pdfSoon: 'PDF (soon)',
     signingIn: 'Signing in…',
     creating: 'Creating…',
     passwordsDiffer: 'Passwords do not match',
@@ -78,6 +123,54 @@ export const strings = {
 } as const satisfies Record<SupportedLanguage, Record<string, string>>;
 
 export type StringKey = keyof (typeof strings)['en'];
+
+/**
+ * Counted nouns, per plural category.
+ *
+ * Arabic has six: zero, one, two, few (3–10), many (11–99) and other (100+),
+ * and they take different noun forms — "مقطع" for one, the dual "مقطعان" for
+ * two, "مقاطع" for a few. Interpolating a number in front of a single form
+ * produces "2 مقطع", which reads to an Arabic speaker exactly the way "2 item"
+ * reads in English: like software that was translated rather than written.
+ *
+ * `Intl.PluralRules` knows the categories, so no library is needed — only the
+ * right noun for each.
+ */
+const plurals = {
+  ar: {
+    passages: {
+      zero: 'لا مقاطع',
+      one: 'مقطع واحد',
+      two: 'مقطعان',
+      few: 'مقاطع',
+      many: 'مقطعاً',
+      other: 'مقطع',
+    },
+  },
+  en: {
+    passages: { one: 'passage', other: 'passages' },
+  },
+} as const;
+
+export type PluralKey = keyof (typeof plurals)['en'];
+
+/**
+ * Render a counted noun, e.g. "3 مقاطع" or "1 passage".
+ *
+ * Arabic drops the numeral for one and two, because "مقطع واحد" and "مقطعان"
+ * already carry the count — writing "1 مقطع واحد" is redundant in a way no
+ * Arabic speaker would.
+ */
+export function plural(lang: SupportedLanguage, key: PluralKey, n: number): string {
+  const category = new Intl.PluralRules(lang === 'ar' ? 'ar' : 'en').select(n);
+  const forms = plurals[lang][key] as Record<string, string>;
+  const noun = forms[category] ?? forms['other'] ?? '';
+
+  if (lang === 'ar' && (category === 'one' || category === 'two' || category === 'zero')) {
+    return noun;
+  }
+  return `${formatNumber(n)} ${noun}`;
+}
 
 /**
  * Format a quantity for display, in Western digits, in both languages.

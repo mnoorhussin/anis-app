@@ -31,6 +31,8 @@ import (
 
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/bootstrap"
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/db"
+	"github.com/mnoorhussin/anis-app/pocketbase/internal/ingest"
+	"github.com/mnoorhussin/anis-app/pocketbase/internal/rag"
 	_ "github.com/mnoorhussin/anis-app/pocketbase/migrations"
 	"github.com/mnoorhussin/anis-app/pocketbase/routes"
 )
@@ -58,13 +60,20 @@ func main() {
 	// atomically with the user row itself.
 	bootstrap.Register(app)
 
+	// Keeps the vec0 index in step with deleted content. Not optional: the
+	// index has no foreign keys, so nothing else removes a deleted chunk's
+	// vector and it would stay searchable.
+	ingest.RegisterHooks(app)
+
+	deps := routes.Deps{Ingest: &ingest.Service{Embedder: newEmbedder(app)}}
+
 	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		// Fail fast rather than serving an assistant that cannot retrieve.
 		// See db.AssertVecAvailable for why this is a real failure mode.
 		if err := db.AssertVecAvailable(e.App.DB()); err != nil {
 			return err
 		}
-		routes.Register(e)
+		routes.Register(e, deps)
 		return e.Next()
 	})
 
@@ -94,4 +103,23 @@ func publicDir() string {
 		return "./pb_public"
 	}
 	return filepath.Join(os.Args[0], "../pb_public")
+}
+
+// newEmbedder returns the configured embedding provider.
+//
+// The development fallback is gated behind an explicit environment variable
+// rather than simply "no API key set", because a missing key in production is
+// exactly when a silent fallback would do the most damage: the assistant would
+// keep answering, from passages retrieved by a model with no semantic
+// understanding at all. Failing to start is the correct behaviour there.
+func newEmbedder(app core.App) rag.Embedder {
+	if os.Getenv("ANIS_DEV_FAKE_EMBEDDINGS") == "1" {
+		app.Logger().Warn("USING FAKE EMBEDDINGS - retrieval quality is meaningless. " +
+			"Never set ANIS_DEV_FAKE_EMBEDDINGS in production.")
+		return &rag.HashEmbedder{}
+	}
+	return &rag.Voyage{
+		APIKey:    os.Getenv("VOYAGE_API_KEY"),
+		ModelName: os.Getenv("ANIS_EMBEDDING_MODEL"),
+	}
 }

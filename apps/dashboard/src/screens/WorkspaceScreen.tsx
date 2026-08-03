@@ -6,6 +6,7 @@ import { formatNumber } from '../i18n.js';
 import { useLanguage } from '../lib/LanguageContext.js';
 import { pb } from '../lib/pocketbase.js';
 import { useSignOut } from '../lib/useAuth.js';
+import { SourcesCard } from './SourcesCard.js';
 
 interface Workspace {
   id: string;
@@ -91,6 +92,8 @@ export function WorkspaceScreen() {
               </div>
             </div>
           </Card>
+
+          <SourcesCard workspaceId={workspace.id} />
 
           <Card>
             <h2 className="font-display text-lg font-semibold">{t('installTitle')}</h2>
