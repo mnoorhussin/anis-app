@@ -4,6 +4,12 @@ go 1.25.0
 
 require (
 	github.com/asg017/sqlite-vec-go-bindings v0.1.6
+	// DO NOT BUMP. v0.22–v0.32 compile and then panic at runtime on the first
+	// query; v0.33+ does not compile at all, having dropped the
+	// sqlite3.Binary extension point that every sqlite-vec binding relies on.
+	// The bindings' WebAssembly build has not been rebuilt since early 2025
+	// and there is no upstream fix. `go get -u` will break this.
+	// Migration target is ncruces/go-sqlite3/ext/vec1 — see README.
 	github.com/ncruces/go-sqlite3 v0.20.0
 	github.com/pocketbase/dbx v1.12.0
 	github.com/pocketbase/pocketbase v0.39.10
