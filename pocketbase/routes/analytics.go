@@ -104,6 +104,9 @@ func handleAnalytics(e *core.RequestEvent) error {
 
 	summary, err := analytics.Compute(e.App, workspace.Id, days)
 	if err != nil {
+		// Logged as well as returned: the response deliberately hides the
+		// cause from the customer, which also hid it from us.
+		e.App.Logger().Error("analytics failed", "workspace", workspace.Id, "error", err)
 		return e.InternalServerError("could not compute analytics", err)
 	}
 	return e.JSON(http.StatusOK, summary)

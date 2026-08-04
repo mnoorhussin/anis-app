@@ -222,10 +222,15 @@ func firstResponseMedian(app core.App, workspaceID, since string) (*int64, error
 	}
 	var rows []row
 
+	// COALESCE is load-bearing, not tidiness. A conversation with no reply yet
+	// — one still waiting on an agent, or one where the visitor wrote and left
+	// — makes `min()` return NULL, and scanning NULL into a string fails, which
+	// took down the ENTIRE summary rather than this one metric. Every test had
+	// happened to use conversations that were both asked and answered.
 	err := app.DB().NewQuery(`
 		SELECT
-			min(CASE WHEN role = 'user' THEN created END) AS first_user,
-			min(CASE WHEN role IN ('assistant','human') THEN created END) AS first_reply
+			COALESCE(min(CASE WHEN role = 'user' THEN created END), '') AS first_user,
+			COALESCE(min(CASE WHEN role IN ('assistant','human') THEN created END), '') AS first_reply
 		FROM messages
 		WHERE workspace = {:ws} AND created >= {:since}
 		GROUP BY conversation`).
