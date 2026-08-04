@@ -1,12 +1,14 @@
 package routes
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/types"
 
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/keys"
 )
@@ -110,16 +112,49 @@ func applyWidgetCORS(e *core.RequestEvent) {
 	h.Set("Access-Control-Max-Age", "600")
 }
 
+// WidgetConfigMap decodes a workspace's stored widget_config.
+//
+// PocketBase hands a JSON field back as types.JSONRaw — a []byte — NOT as a
+// map. Asserting `.(map[string]any)` compiles, always fails, and yields a nil
+// map, so every workspace silently falls back to the defaults: the customer's
+// colours, greeting, suggested questions and confidence floor are all
+// discarded with no error anywhere. It looks exactly like a workspace nobody
+// has configured.
+func WidgetConfigMap(workspace *core.Record) map[string]any {
+	out := map[string]any{}
+
+	switch raw := workspace.Get("widget_config").(type) {
+	case types.JSONRaw:
+		if len(raw) > 0 {
+			_ = json.Unmarshal(raw, &out)
+		}
+	case map[string]any:
+		// Not the shape PocketBase returns today, but harmless to accept and
+		// it keeps this working if that ever changes.
+		out = raw
+	case []byte:
+		if len(raw) > 0 {
+			_ = json.Unmarshal(raw, &out)
+		}
+	case string:
+		if raw != "" {
+			_ = json.Unmarshal([]byte(raw), &out)
+		}
+	}
+
+	if out == nil {
+		out = map[string]any{}
+	}
+	return out
+}
+
 // publicWidgetConfig is everything the widget is allowed to know.
 //
 // An allow-list of fields, not a filtered record. A denylist would leak the
 // next field somebody adds to the workspace — and the workspace row holds the
 // account id, usage, and the source list.
 func publicWidgetConfig(workspace *core.Record) map[string]any {
-	cfg, _ := workspace.Get("widget_config").(map[string]any)
-	if cfg == nil {
-		cfg = map[string]any{}
-	}
+	cfg := WidgetConfigMap(workspace)
 
 	pick := func(key string, fallback any) any {
 		if v, ok := cfg[key]; ok && v != nil {

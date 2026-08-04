@@ -1,17 +1,13 @@
 /**
- * Widget shell — the launcher bubble and the panel it opens.
- *
- * Scaffold state: the panel renders the configured greeting and suggested
- * questions, and the composer is disabled with an honest label. It does not
- * fake a conversation. A demo that answers from nothing is precisely the
- * behaviour this product is being built to avoid.
+ * Widget shell — the launcher bubble and the conversation panel.
  */
 
-import { REFUSAL_TEMPLATE, detectLanguage, type SupportedLanguage } from '@anis/types';
+import { detectLanguage, type SupportedLanguage } from '@anis/types';
 import type { ThemeName } from '@anis/tokens';
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 
 import type { PublicWidgetConfig } from './api.js';
+import { useConversation, type Message } from './useConversation.js';
 
 interface Props {
   apiUrl: string;
@@ -20,30 +16,75 @@ interface Props {
   theme: ThemeName;
 }
 
+const UI = {
+  ar: {
+    open: 'افتح المحادثة',
+    close: 'إغلاق',
+    send: 'إرسال',
+    placeholder: 'اكتب سؤالك…',
+    failed: 'تعذّر الإرسال. تحقق من اتصالك.',
+    retry: 'إعادة المحاولة',
+    poweredBy: 'مدعوم بواسطة أنيس',
+    conversation: 'المحادثة',
+  },
+  en: {
+    open: 'Open chat',
+    close: 'Close',
+    send: 'Send',
+    placeholder: 'Type your question…',
+    failed: "That didn't send. Check your connection.",
+    retry: 'Try again',
+    poweredBy: 'Powered by Anis',
+    conversation: 'Conversation',
+  },
+} as const;
+
 function initialLanguage(config: PublicWidgetConfig): SupportedLanguage {
   if (config.language !== 'auto') return config.language;
-  // Before the visitor has typed anything, the host page's own language is the
-  // best available signal.
+  // Before the visitor has typed, the host page's own language is the best
+  // signal available.
   const pageLang = document.documentElement.lang?.slice(0, 2).toLowerCase();
   return pageLang === 'ar' ? 'ar' : 'en';
 }
 
-export function App({ config, theme: _theme }: Props) {
+export function App({ apiUrl, widgetKey, config }: Props) {
   const [open, setOpen] = useState(false);
-  const [lang, setLang] = useState<SupportedLanguage>(() => initialLanguage(config));
+  const [uiLang, setUiLang] = useState<SupportedLanguage>(() => initialLanguage(config));
   const [draft, setDraft] = useState('');
 
-  const dir = lang === 'ar' ? 'rtl' : 'ltr';
-  const greeting = config.greeting[lang];
-  const suggestions = config.suggestedQuestions[lang];
+  const { messages, busy, failed, send, retry } = useConversation(apiUrl, widgetKey, uiLang);
+  const t = UI[uiLang];
+  const dir = uiLang === 'ar' ? 'rtl' : 'ltr';
 
-  // Re-detect from what the visitor is typing, so the panel flips direction as
-  // soon as they switch language rather than after they send.
+  const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Follow the conversation as it grows, including while a reply streams in.
+  useEffect(() => {
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages]);
+
+  // Focus the composer when the panel opens — a chat that needs a second click
+  // before you can type is a chat people close.
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+  }, [open]);
+
   function onInput(value: string) {
     setDraft(value);
+    // Flip the interface as soon as the visitor's language is clear, not after
+    // they send. `config.language` pins it when the business chose one.
     if (config.language === 'auto' && value.trim().length > 2) {
-      setLang(detectLanguage(value, lang).language);
+      setUiLang(detectLanguage(value, uiLang).language);
     }
+  }
+
+  function submit(e: Event) {
+    e.preventDefault();
+    if (!draft.trim() || busy) return;
+    send(draft);
+    setDraft('');
   }
 
   if (!open) {
@@ -51,7 +92,7 @@ export function App({ config, theme: _theme }: Props) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label={lang === 'ar' ? 'افتح المحادثة' : 'Open chat'}
+        aria-label={t.open}
         class="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-contrast shadow-lg transition-transform duration-200 ease-out-quint hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2"
       >
         <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2">
@@ -61,19 +102,26 @@ export function App({ config, theme: _theme }: Props) {
     );
   }
 
+  const showSuggestions = messages.length === 0 && config.suggestedQuestions[uiLang].length > 0;
+
   return (
     <div
       dir={dir}
-      lang={lang}
+      lang={uiLang}
+      role="dialog"
+      aria-label={config.name}
       class="flex h-[min(34rem,80vh)] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border-soft bg-surface shadow-2xl"
     >
       <header class="flex items-center gap-3 border-b border-border-soft px-4 py-3">
-        <span class="grow truncate font-medium text-foreground">{config.name}</span>
+        {config.logoUrl && <img src={config.logoUrl} alt="" class="h-6 w-6 rounded" />}
+        <span dir="auto" class="grow truncate font-medium text-foreground">
+          {config.name}
+        </span>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          aria-label={lang === 'ar' ? 'إغلاق' : 'Close'}
-          class="rounded-lg p-1 text-muted hover:bg-surface-2"
+          aria-label={t.close}
+          class="rounded-lg p-1 text-muted hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2"
         >
           <svg
             viewBox="0 0 24 24"
@@ -87,25 +135,34 @@ export function App({ config, theme: _theme }: Props) {
         </button>
       </header>
 
-      <div class="flex grow flex-col gap-3 overflow-y-auto p-4">
-        {/* dir="auto" on message content: a single conversation can hold both
-            languages, and the browser's bidi resolution beats ours per bubble. */}
-        <p
-          dir="auto"
-          class="max-w-[85%] rounded-2xl bg-surface-2 px-3 py-2 text-sm text-foreground"
-        >
-          {greeting}
-        </p>
+      <div
+        ref={listRef}
+        // A log rather than an alert: new messages are announced without
+        // stealing focus from the composer mid-conversation.
+        role="log"
+        aria-live="polite"
+        aria-label={t.conversation}
+        class="flex grow flex-col gap-3 overflow-y-auto p-4"
+      >
+        <Bubble
+          message={{
+            id: 'greeting',
+            role: 'assistant',
+            text: config.greeting[uiLang],
+            language: uiLang,
+          }}
+        />
 
-        {suggestions.length > 0 && (
+        {showSuggestions && (
           <ul class="flex flex-wrap gap-2">
-            {suggestions.map((q) => (
+            {config.suggestedQuestions[uiLang].map((q) => (
               <li key={q}>
                 <button
                   type="button"
                   dir="auto"
-                  disabled
-                  class="rounded-full border border-border-soft px-3 py-1 text-xs text-muted disabled:opacity-60"
+                  disabled={busy}
+                  onClick={() => send(q)}
+                  class="rounded-full border border-border-soft px-3 py-1 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2"
                 >
                   {q}
                 </button>
@@ -114,29 +171,102 @@ export function App({ config, theme: _theme }: Props) {
           </ul>
         )}
 
-        {/* The refusal string is shown here so the scaffold demonstrates the
-            behaviour the product is required to have, rather than implying an
-            answering assistant that does not exist yet. */}
-        <p dir="auto" class="max-w-[85%] rounded-2xl bg-surface-2 px-3 py-2 text-sm text-muted">
-          {REFUSAL_TEMPLATE[lang]}
-        </p>
-      </div>
+        {messages.map((m) => (
+          <Bubble key={m.id} message={m} />
+        ))}
 
-      <div class="border-t border-border-soft p-3">
-        <input
-          value={draft}
-          dir="auto"
-          onInput={(e) => onInput((e.target as HTMLInputElement).value)}
-          placeholder={lang === 'ar' ? 'غير متاح بعد' : 'Not wired up yet'}
-          disabled
-          class="w-full rounded-xl bg-surface-2 px-3 py-2 text-sm text-foreground placeholder:text-muted disabled:cursor-not-allowed"
-        />
-        {config.badgeOn && (
-          <p class="mt-2 text-center text-[11px] text-muted">
-            {lang === 'ar' ? 'مدعوم بواسطة أنيس' : 'Powered by Anis'}
-          </p>
+        {failed && (
+          <div dir="auto" class="flex flex-col items-start gap-2">
+            <p role="alert" class="text-xs text-muted">
+              {t.failed}
+            </p>
+            <button
+              type="button"
+              onClick={retry}
+              class="rounded-full border border-border-soft px-3 py-1 text-xs text-foreground hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              {t.retry}
+            </button>
+          </div>
         )}
       </div>
+
+      <form onSubmit={submit} class="border-t border-border-soft p-3">
+        <div class="flex items-end gap-2">
+          <input
+            ref={inputRef}
+            value={draft}
+            // The visitor's own text decides its direction, independently of
+            // the panel: someone can type Arabic into an English interface.
+            dir="auto"
+            enterkeyhint="send"
+            onInput={(e) => onInput((e.target as HTMLInputElement).value)}
+            placeholder={t.placeholder}
+            aria-label={t.placeholder}
+            disabled={busy}
+            class="w-full grow rounded-xl bg-surface-2 px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2"
+          />
+          <button
+            type="submit"
+            disabled={busy || !draft.trim()}
+            aria-label={t.send}
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-contrast transition-opacity disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            {/* Mirrored in RTL: a send arrow must point the way the text runs. */}
+            <svg
+              viewBox="0 0 24 24"
+              class="h-4 w-4 rtl:-scale-x-100"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </button>
+        </div>
+
+        {config.badgeOn && <p class="mt-2 text-center text-[11px] text-muted">{t.poweredBy}</p>}
+      </form>
     </div>
+  );
+}
+
+function Bubble({ message }: { message: Message }) {
+  const mine = message.role === 'user';
+
+  // A refusal is styled as an ordinary reply, not as an error. It is a correct
+  // and expected outcome — the assistant declining to guess — and dressing it
+  // in red would teach visitors that the product is broken when it is doing
+  // precisely what it promises.
+  const tone = mine
+    ? 'bg-accent text-accent-contrast self-end'
+    : 'bg-surface-2 text-foreground self-start';
+
+  return (
+    <p
+      // dir="auto" per bubble, not per panel: one conversation routinely holds
+      // an Arabic question and an English answer, and the browser resolves each
+      // from its own first strong character better than we can guess.
+      dir="auto"
+      lang={message.language}
+      class={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${tone}`}
+    >
+      {message.text}
+      {message.streaming && message.text === '' && <TypingDots />}
+    </p>
+  );
+}
+
+function TypingDots() {
+  return (
+    <span class="inline-flex items-center gap-1 py-1" aria-hidden="true">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          class="h-1.5 w-1.5 rounded-full bg-muted"
+          style={{ animation: `typing-dot 1.2s ${i * 0.15}s infinite` }}
+        />
+      ))}
+    </span>
   );
 }

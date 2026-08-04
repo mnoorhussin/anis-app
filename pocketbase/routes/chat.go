@@ -143,11 +143,8 @@ func handleWidgetMessage(deps Deps) func(*core.RequestEvent) error {
 // A parameter, not a constant, so it can be tuned per workspace and swept
 // during evaluation. The default is UNVALIDATED — see answer.DefaultFloor.
 func workspaceFloor(workspace *core.Record) float64 {
-	cfg, _ := workspace.Get("widget_config").(map[string]any)
-	if cfg != nil {
-		if v, ok := cfg["confidenceFloor"].(float64); ok && v > 0 && v <= 1 {
-			return v
-		}
+	if v, ok := WidgetConfigMap(workspace)["confidenceFloor"].(float64); ok && v > 0 && v <= 1 {
+		return v
 	}
 	return answer.DefaultFloor
 }

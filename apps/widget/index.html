@@ -59,13 +59,28 @@
 
     <div class="banner">A cookie banner, competing for z-index.</div>
 
-    <!-- Mirrors the real install snippet. `data-anis-api` is dev-only; in
+    <!-- Mirrors the real install snippet, except that the key comes from
+         ?key=wk_... so this file never has to be edited (and a real key never
+         gets committed by accident). `data-anis-api` is dev-only; in
          production the API URL is baked into the bundle. -->
-    <script
-      type="module"
-      src="/src/embed.tsx"
-      data-anis-key="dev-key"
-      data-anis-api="http://127.0.0.1:8090"
-    ></script>
+    <script>
+      (function () {
+        var key = new URLSearchParams(location.search).get('key');
+        if (!key) {
+          document.querySelector('main').insertAdjacentHTML(
+            'beforeend',
+            '<p style="color:#b00"><strong>No widget key.</strong> Open this page as ' +
+              '<code>?key=wk_…</code> — take the key from the dashboard.</p>',
+          );
+          return;
+        }
+        var s = document.createElement('script');
+        s.type = 'module';
+        s.src = '/src/embed.tsx';
+        s.dataset.anisKey = key;
+        s.dataset.anisApi = 'http://127.0.0.1:8090';
+        document.body.appendChild(s);
+      })();
+    </script>
   </body>
 </html>
