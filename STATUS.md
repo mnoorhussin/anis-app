@@ -19,10 +19,14 @@ read first by anyone (or any session) picking this up cold.
 | Live: agent replies pushed to the visitor                 | Done                                                     |
 | Usage metering + hard spending cap                        | Done                                                     |
 | Stripe: checkout, webhooks, portal, billing screen        | Done — webhook path verified, API calls not              |
+| Ratings, analytics view, knowledge-gap queue              | Done — a thumbs-up is the only resolution signal today   |
 
-Not started: analytics and knowledge-gap **views** (the data is already being
-recorded), WhatsApp/Messenger, advanced actions, agency multi-workspace,
+Not started: WhatsApp/Messenger, advanced actions, agency multi-workspace,
 instant-demo generator.
+
+Deliberately absent from the analytics view: **top topics**. Clustering is not
+implemented, and a keyword-frequency list would look authoritative while
+meaning nothing.
 
 ## The one thing to understand before continuing
 
@@ -97,7 +101,9 @@ vanishing after a reconnect, and billing writes resolving the wrong account.
 
 1. **Get the two API keys**, then measure the confidence floor. Everything
    downstream of retrieval is guesswork until this happens.
-2. Analytics and knowledge-gap views — presentation over data already recorded
-   honestly (`RESOLUTION_SIGNALS` has no "abandoned" member by design).
+2. Watch whether visitors actually rate replies. A thumbs-up is currently the
+   only signal that resolves a conversation, so if nobody presses it the
+   headline stays near zero — which is honest, but may mean the product needs a
+   second defensible signal rather than a looser definition.
 3. Rehearse a Stripe checkout end to end with `stripe listen`.
 4. Rehearse a Litestream restore on a scratch box.

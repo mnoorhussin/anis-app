@@ -80,7 +80,7 @@ func handleWidgetMessage(deps Deps) func(*core.RequestEvent) error {
 		if err != nil {
 			return e.InternalServerError("could not open the conversation", err)
 		}
-		if err := saveMessage(e.App, workspace.Id, conversation.Id, "user", question, nil, "", 0); err != nil {
+		if _, err := saveMessage(e.App, workspace.Id, conversation.Id, "user", question, nil, "", 0); err != nil {
 			return e.InternalServerError("could not save the message", err)
 		}
 
@@ -227,7 +227,9 @@ func streamRefusal(
 		return nil // the visitor navigated away; nothing to report
 	}
 
-	if err := saveMessage(e.App, workspaceID, conversation.Id, "assistant", text,
+	// A refusal is not rateable — there is nothing to say was helpful — so its
+	// id is not sent to the widget.
+	if _, err := saveMessage(e.App, workspaceID, conversation.Id, "assistant", text,
 		nil, string(outcome), similarity); err != nil {
 		e.App.Logger().Error("could not save refusal", "error", err)
 	}
@@ -294,8 +296,9 @@ func streamAnswer(
 	}
 
 	text := reply.String()
-	if err := saveMessage(e.App, workspace.Id, conversation.Id, "assistant", text,
-		decision.SourceIDs(), string(answer.OutcomeAnswered), decision.TopSimilarity); err != nil {
+	saved, err := saveMessage(e.App, workspace.Id, conversation.Id, "assistant", text,
+		decision.SourceIDs(), string(answer.OutcomeAnswered), decision.TopSimilarity)
+	if err != nil {
 		e.App.Logger().Error("could not save reply", "error", err)
 	}
 
@@ -304,11 +307,17 @@ func streamAnswer(
 		e.App.Logger().Error("could not record usage", "account", account.Id, "error", err)
 	}
 
-	return sse(e, "done", map[string]any{
+	done := map[string]any{
 		"conversationId": conversation.Id,
 		"outcome":        string(answer.OutcomeAnswered),
 		"offerHandoff":   false,
-	})
+	}
+	// The widget needs the stored id to attach a rating to this reply. Only
+	// an answered reply carries one: a refusal has nothing to rate.
+	if saved != nil {
+		done["messageId"] = saved.Id
+	}
+	return sse(e, "done", done)
 }
 
 /* -------------------------------------------------------------------------
@@ -350,10 +359,10 @@ func saveMessage(
 	sources []string,
 	outcome string,
 	confidence float64,
-) error {
+) (*core.Record, error) {
 	col, err := app.FindCollectionByNameOrId("messages")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	m := core.NewRecord(col)
 	m.Set("workspace", workspaceID)
@@ -367,7 +376,10 @@ func saveMessage(
 		m.Set("outcome", outcome)
 	}
 	m.Set("confidence", confidence)
-	return app.Save(m)
+	if err := app.Save(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // HistoryTurns kept in context. Small on purpose: support conversations are

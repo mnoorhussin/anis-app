@@ -6,6 +6,7 @@ import { formatNumber } from '../i18n.js';
 import { useLanguage } from '../lib/LanguageContext.js';
 import { pb } from '../lib/pocketbase.js';
 import { useSignOut } from '../lib/useAuth.js';
+import { AnalyticsScreen } from './AnalyticsScreen.js';
 import { BillingScreen } from './BillingScreen.js';
 import { InboxScreen } from './InboxScreen.js';
 import { SourcesCard } from './SourcesCard.js';
@@ -24,7 +25,7 @@ export function WorkspaceScreen() {
   const { t, lang, setLang } = useLanguage();
   const signOut = useSignOut();
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
-  const [tab, setTab] = useState<'workspace' | 'inbox' | 'billing'>('workspace');
+  const [tab, setTab] = useState<'workspace' | 'inbox' | 'analytics' | 'billing'>('workspace');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -69,7 +70,7 @@ export function WorkspaceScreen() {
 
       {workspace && (
         <nav className="flex gap-1 rounded-xl bg-surface-2 p-1" aria-label="Sections">
-          {(['workspace', 'inbox', 'billing'] as const).map((id) => (
+          {(['workspace', 'inbox', 'analytics', 'billing'] as const).map((id) => (
             <button
               key={id}
               type="button"
@@ -81,7 +82,15 @@ export function WorkspaceScreen() {
                   : 'text-muted hover:text-foreground'
               }`}
             >
-              {t(id === 'workspace' ? 'tabWorkspace' : id === 'inbox' ? 'tabInbox' : 'tabBilling')}
+              {t(
+                id === 'workspace'
+                  ? 'tabWorkspace'
+                  : id === 'inbox'
+                    ? 'tabInbox'
+                    : id === 'analytics'
+                      ? 'tabAnalytics'
+                      : 'tabBilling',
+              )}
             </button>
           ))}
         </nav>
@@ -96,6 +105,8 @@ export function WorkspaceScreen() {
       )}
 
       {workspace && tab === 'inbox' && <InboxScreen workspaceId={workspace.id} plan={plan} />}
+
+      {workspace && tab === 'analytics' && <AnalyticsScreen />}
 
       {workspace && tab === 'billing' && <BillingScreen />}
 

@@ -1,7 +1,7 @@
 import { detectLanguage, type SupportedLanguage } from '@anis/types';
 import { useCallback, useRef, useState } from 'preact/hooks';
 
-import { sendMessage } from './api.js';
+import { rateMessage, sendMessage } from './api.js';
 import { conversationId, setConversationId, visitorId } from './storage.js';
 import { useLiveMessages } from './useLiveMessages.js';
 
@@ -15,6 +15,10 @@ export interface Message {
   streaming?: boolean;
   /** Set on the assistant's reply once complete. */
   outcome?: string;
+  /** Server id, present only on an answered reply — refusals are not rateable. */
+  serverId?: string;
+  /** The rating this visitor gave, once they have given one. */
+  rating?: 'up' | 'down';
   /**
    * True when the assistant could not answer and said so. Rendered
    * differently, because a refusal is a distinct outcome and not an error.
@@ -36,6 +40,7 @@ export interface ConversationState {
   failed: boolean;
   send: (text: string) => void;
   retry: () => void;
+  rate: (messageId: string, serverId: string, rating: 'up' | 'down') => void;
 }
 
 let counter = 0;
@@ -137,7 +142,13 @@ export function useConversation(
                 .filter((m) => !(m.id === replyId && meta.withHuman))
                 .map((m) =>
                   m.id === replyId
-                    ? { ...m, streaming: false, outcome: meta.outcome, refused: meta.offerHandoff }
+                    ? {
+                      ...m,
+                      streaming: false,
+                      outcome: meta.outcome,
+                      refused: meta.offerHandoff,
+                      ...(meta.messageId ? { serverId: meta.messageId } : {}),
+                    }
                     : m,
                 ),
             );
@@ -155,6 +166,23 @@ export function useConversation(
     [apiUrl, widgetKey, fallbackLanguage, busy, visitor],
   );
 
+  const rate = useCallback(
+    (messageId: string, serverId: string, rating: 'up' | 'down') => {
+      if (!convo.current) return;
+      // Applied optimistically. The rating is not worth a spinner, and a
+      // failed call leaves the thumb shown as chosen rather than flickering
+      // back — which would read as the tap not registering.
+      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, rating } : m)));
+      void rateMessage(apiUrl, widgetKey, {
+        conversationId: convo.current,
+        messageId: serverId,
+        rating,
+        visitor,
+      });
+    },
+    [apiUrl, widgetKey, visitor],
+  );
+
   const retry = useCallback(() => {
     if (lastSent.current) send(lastSent.current);
   }, [send]);
@@ -168,5 +196,6 @@ export function useConversation(
     failed,
     send,
     retry,
+    rate,
   };
 }

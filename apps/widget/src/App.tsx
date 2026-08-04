@@ -26,6 +26,9 @@ const UI = {
     failed: 'تعذّر الإرسال. تحقق من اتصالك.',
     retry: 'إعادة المحاولة',
     poweredBy: 'مدعوم بواسطة أنيس',
+    helpful: 'كانت مفيدة',
+    notHelpful: 'لم تكن مفيدة',
+    thanks: 'شكراً لملاحظتك',
     conversation: 'المحادثة',
     talkToPerson: 'تحدّث مع موظف',
     withHuman: 'أحد الموظفين يتابع محادثتك الآن.',
@@ -38,6 +41,9 @@ const UI = {
     failed: "That didn't send. Check your connection.",
     retry: 'Try again',
     poweredBy: 'Powered by Anis',
+    helpful: 'This helped',
+    notHelpful: 'This did not help',
+    thanks: 'Thanks for the feedback',
     conversation: 'Conversation',
     talkToPerson: 'Talk to a person',
     withHuman: 'A member of the team is looking after this conversation.',
@@ -57,7 +63,7 @@ export function App({ apiUrl, widgetKey, config }: Props) {
   const [uiLang, setUiLang] = useState<SupportedLanguage>(() => initialLanguage(config));
   const [draft, setDraft] = useState('');
 
-  const { messages, conversationId, withHuman, lastQuestion, busy, failed, send, retry } =
+  const { messages, conversationId, withHuman, lastQuestion, busy, failed, send, retry, rate } =
     useConversation(apiUrl, widgetKey, uiLang);
   const [handoff, setHandoff] = useState(false);
   const t = UI[uiLang];
@@ -179,7 +185,7 @@ export function App({ apiUrl, widgetKey, config }: Props) {
         )}
 
         {messages.map((m) => (
-          <Bubble key={m.id} message={m} />
+          <Bubble key={m.id} message={m} lang={uiLang} onRate={rate} />
         ))}
 
         {/* The offer appears only after a genuine refusal, only when the
@@ -273,7 +279,15 @@ export function App({ apiUrl, widgetKey, config }: Props) {
   );
 }
 
-function Bubble({ message }: { message: Message }) {
+function Bubble({
+  message,
+  lang,
+  onRate,
+}: {
+  message: Message;
+  lang?: SupportedLanguage;
+  onRate?: (messageId: string, serverId: string, rating: 'up' | 'down') => void;
+}) {
   const mine = message.role === 'user';
 
   // A refusal is styled as an ordinary reply, not as an error. It is a correct
@@ -285,17 +299,69 @@ function Bubble({ message }: { message: Message }) {
     : 'bg-surface-2 text-foreground self-start';
 
   return (
-    <p
-      // dir="auto" per bubble, not per panel: one conversation routinely holds
-      // an Arabic question and an English answer, and the browser resolves each
-      // from its own first strong character better than we can guess.
-      dir="auto"
-      lang={message.language}
-      class={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${tone}`}
-    >
-      {message.text}
-      {message.streaming && message.text === '' && <TypingDots />}
-    </p>
+    <div class={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
+      <p
+        // dir="auto" per bubble, not per panel: one conversation routinely holds
+        // an Arabic question and an English answer, and the browser resolves each
+        // from its own first strong character better than we can guess.
+        dir="auto"
+        lang={message.language}
+        class={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${tone}`}
+      >
+        {message.text}
+        {message.streaming && message.text === '' && <TypingDots />}
+      </p>
+
+      {/* Only an answered reply carries a server id, so only an answered reply
+          is rateable. A refusal has nothing to call helpful, and rating a
+          visitor's own message would be meaningless. */}
+      {!mine && !message.streaming && message.serverId && onRate && lang && (
+        <Rating message={message} lang={lang} onRate={onRate} />
+      )}
+    </div>
+  );
+}
+
+function Rating({
+  message,
+  lang,
+  onRate,
+}: {
+  message: Message;
+  lang: SupportedLanguage;
+  onRate: (messageId: string, serverId: string, rating: 'up' | 'down') => void;
+}) {
+  const t = UI[lang];
+
+  if (message.rating) {
+    return <span class="mt-1 text-[11px] text-muted">{t.thanks}</span>;
+  }
+
+  return (
+    <span class="mt-1 flex gap-1">
+      {(['up', 'down'] as const).map((r) => (
+        <button
+          key={r}
+          type="button"
+          // Labelled rather than relying on the icon alone: a thumb rotated
+          // 180 degrees is not self-evident to a screen reader.
+          aria-label={r === 'up' ? t.helpful : t.notHelpful}
+          title={r === 'up' ? t.helpful : t.notHelpful}
+          onClick={() => message.serverId && onRate(message.id, message.serverId, r)}
+          class="rounded-full p-1 text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            class={`h-3.5 w-3.5 ${r === 'down' ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M7 10v11H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h3Zm0 0 4.5-7a2 2 0 0 1 3.4 2l-1.2 5h5.1a2 2 0 0 1 2 2.4l-1.4 7A2 2 0 0 1 17.4 21H7" />
+          </svg>
+        </button>
+      ))}
+    </span>
   );
 }
 

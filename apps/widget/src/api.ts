@@ -74,6 +74,11 @@ export interface StreamDone {
   offerHandoff: boolean;
   /** True when a person has the conversation and the assistant stayed silent. */
   withHuman?: boolean;
+  /**
+   * The stored id of the reply, present only when one was generated. A
+   * refusal has none — there is nothing to rate.
+   */
+  messageId?: string;
 }
 
 export interface StreamCallbacks {
@@ -172,6 +177,35 @@ export async function requestHandoff(
 ): Promise<boolean> {
   try {
     const res = await fetch(`${apiUrl}/api/anis/widget/${encodeURIComponent(key)}/escalate`, {
+      method: 'POST',
+      credentials: 'omit',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Record a thumbs up or down on a reply.
+ *
+ * A thumbs up is the strongest resolution signal the product has, and the only
+ * thing that lets a conversation be counted as auto-resolved. A thumbs down is
+ * recorded for quality review and marks no outcome at all — an unhelpful
+ * answer is not evidence that anything was concluded.
+ *
+ * Failure is swallowed: a visitor who taps a thumb and sees an error learns
+ * nothing useful, and the rating is not worth an interruption.
+ */
+export async function rateMessage(
+  apiUrl: string,
+  key: string,
+  body: { conversationId: string; messageId: string; rating: 'up' | 'down'; visitor: string },
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${apiUrl}/api/anis/widget/${encodeURIComponent(key)}/rate`, {
       method: 'POST',
       credentials: 'omit',
       headers: { 'content-type': 'application/json' },

@@ -66,6 +66,9 @@ func Register(e *core.ServeEvent, deps Deps) error {
 	authed.POST("/billing/portal", handleBillingPortal)
 	authed.POST("/billing/cap", handleSetSpendingCap)
 
+	authed.GET("/analytics", handleAnalytics)
+	authed.POST("/gaps/answer", handleAnswerGap(deps))
+
 	// --- Widget: called from arbitrary third-party domains -----------------
 	//
 	// The only genuinely public endpoints. They authenticate with a widget key
@@ -76,12 +79,14 @@ func Register(e *core.ServeEvent, deps Deps) error {
 	g.GET("/widget/{key}/config", handleWidgetConfig)
 	g.POST("/widget/{key}/message", handleWidgetMessage(deps))
 	g.POST("/widget/{key}/escalate", handleWidgetEscalate(deps))
+	g.POST("/widget/{key}/rate", handleWidgetRate)
 	// Long-lived: this is how a visitor sees an agent's reply.
 	g.GET("/widget/{key}/stream", handleWidgetStream(deps))
 	// The browser preflights the POST because it carries a JSON content-type.
 	g.OPTIONS("/widget/{key}/config", handleWidgetPreflight)
 	g.OPTIONS("/widget/{key}/message", handleWidgetPreflight)
 	g.OPTIONS("/widget/{key}/escalate", handleWidgetPreflight)
+	g.OPTIONS("/widget/{key}/rate", handleWidgetPreflight)
 	g.OPTIONS("/widget/{key}/stream", handleWidgetPreflight)
 
 	// --- Billing -----------------------------------------------------------

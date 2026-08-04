@@ -46,6 +46,7 @@ re-running them does not require a reset.
 | `escalate.mjs` | Lead capture, the assistant going silent under human control, message-role forgery refused          |
 | `stream.mjs`   | History replay, agent replies reaching the visitor, four authorisation refusals                     |
 | `billing.mjs`  | Webhook signatures, idempotent replays, `past_due` keeping the plan, owner-scoped writes            |
+| `analytics.mjs`| Ratings resolving (or not) a conversation, the summary's figures, answering a knowledge gap         |
 
 `crawl.mjs` starts its own fake customer site on a random port, which is why
 the backend needs `ANIS_ALLOW_PRIVATE_CRAWL=1` — the SSRF guard would otherwise
