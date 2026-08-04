@@ -29,6 +29,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/pocketbase/pocketbase/tools/osutils"
 
+	"github.com/mnoorhussin/anis-app/pocketbase/internal/billing"
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/bootstrap"
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/db"
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/fetch"
@@ -62,6 +63,11 @@ func main() {
 	// Every new user gets an account, a workspace and an owner membership,
 	// atomically with the user row itself.
 	bootstrap.Register(app)
+
+	// Sets the Stripe API key once. Absent credentials are fine — billing
+	// endpoints report that they are unavailable rather than failing at boot,
+	// so the product still runs for development and for a self-hoster.
+	billing.Init()
 
 	// Keeps the vec0 index in step with deleted content. Not optional: the
 	// index has no foreign keys, so nothing else removes a deleted chunk's

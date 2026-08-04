@@ -9,7 +9,6 @@ package routes
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -59,6 +58,14 @@ func Register(e *core.ServeEvent, deps Deps) error {
 	authed.POST("/sources", handleCreateSource(deps))
 	authed.POST("/sources/{id}/refresh", handleRefreshSource(deps))
 
+	// Billing. Every one of these re-checks that the caller owns the account:
+	// an agent with inbox access must not be able to commit the business to a
+	// monthly charge.
+	authed.GET("/billing", handleBillingSummary)
+	authed.POST("/billing/checkout", handleStartCheckout)
+	authed.POST("/billing/portal", handleBillingPortal)
+	authed.POST("/billing/cap", handleSetSpendingCap)
+
 	// --- Widget: called from arbitrary third-party domains -----------------
 	//
 	// The only genuinely public endpoints. They authenticate with a widget key
@@ -85,19 +92,4 @@ func Register(e *core.ServeEvent, deps Deps) error {
 	g.POST("/stripe/webhook", handleStripeWebhook)
 
 	return nil
-}
-
-// handleStripeWebhook applies subscription and payment events.
-//
-// NOT IMPLEMENTED. Non-obvious requirements:
-//   - Verify the signature against the RAW request body. Any re-encoding
-//     before verification breaks it.
-//   - Be idempotent on the Stripe event id. Stripe retries, and a retried
-//     `invoice.paid` must not grant a second month of allowance.
-//   - Return 2xx quickly and do the work asynchronously; a slow handler makes
-//     Stripe retry and multiplies the problem.
-func handleStripeWebhook(e *core.RequestEvent) error {
-	return e.JSON(http.StatusNotImplemented, map[string]string{
-		"error": "not implemented",
-	})
 }

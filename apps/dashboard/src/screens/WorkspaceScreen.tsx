@@ -6,6 +6,7 @@ import { formatNumber } from '../i18n.js';
 import { useLanguage } from '../lib/LanguageContext.js';
 import { pb } from '../lib/pocketbase.js';
 import { useSignOut } from '../lib/useAuth.js';
+import { BillingScreen } from './BillingScreen.js';
 import { InboxScreen } from './InboxScreen.js';
 import { SourcesCard } from './SourcesCard.js';
 
@@ -23,7 +24,7 @@ export function WorkspaceScreen() {
   const { t, lang, setLang } = useLanguage();
   const signOut = useSignOut();
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
-  const [tab, setTab] = useState<'workspace' | 'inbox'>('workspace');
+  const [tab, setTab] = useState<'workspace' | 'inbox' | 'billing'>('workspace');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -68,7 +69,7 @@ export function WorkspaceScreen() {
 
       {workspace && (
         <nav className="flex gap-1 rounded-xl bg-surface-2 p-1" aria-label="Sections">
-          {(['workspace', 'inbox'] as const).map((id) => (
+          {(['workspace', 'inbox', 'billing'] as const).map((id) => (
             <button
               key={id}
               type="button"
@@ -80,7 +81,7 @@ export function WorkspaceScreen() {
                   : 'text-muted hover:text-foreground'
               }`}
             >
-              {t(id === 'workspace' ? 'tabWorkspace' : 'tabInbox')}
+              {t(id === 'workspace' ? 'tabWorkspace' : id === 'inbox' ? 'tabInbox' : 'tabBilling')}
             </button>
           ))}
         </nav>
@@ -95,6 +96,8 @@ export function WorkspaceScreen() {
       )}
 
       {workspace && tab === 'inbox' && <InboxScreen workspaceId={workspace.id} plan={plan} />}
+
+      {workspace && tab === 'billing' && <BillingScreen />}
 
       {workspace && tab === 'workspace' && (
         <>
