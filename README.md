@@ -6,9 +6,12 @@ The marketing site lives in a separate repo (`anis-chat`). This one is the
 thing it sells: the dashboard at `app.anis.chat`, the embeddable widget at
 `cdn.anis.chat`, and the backend at `api.anis.chat`.
 
-> **Status: scaffold.** The structure, tooling, schema and deployment are real
-> and verified. No product feature is implemented yet. Endpoints that do not
-> exist return `501` rather than pretending.
+> **Read [STATUS.md](STATUS.md) first.** It records what is built, what is
+> verified, what is not, and the traps that cost hours if rediscovered.
+>
+> Short version: phase-1 features are built and structurally tested, but
+> nothing has run on a real embedding model or LLM — so answer quality is
+> entirely unmeasured.
 
 ## The rule that governs this repo
 
