@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from 'preact/hooks';
 
 import { sendMessage } from './api.js';
 import { conversationId, setConversationId, visitorId } from './storage.js';
+import { useLiveMessages } from './useLiveMessages.js';
 
 export interface Message {
   id: string;
@@ -50,6 +51,30 @@ export function useConversation(
   const [failed, setFailed] = useState(false);
   const [withHuman, setWithHuman] = useState(false);
   const [convoId, setConvoId] = useState<string | null>(conversationId(widgetKey));
+  const visitor = visitorId(widgetKey);
+
+  // The server is the authority on what a conversation contains, so a replay
+  // replaces the list outright — except for a reply still streaming in, which
+  // has no server id yet and would otherwise vanish mid-sentence.
+  const onHistory = useCallback((history: Message[]) => {
+    setMessages((prev) => [...history, ...prev.filter((m) => m.streaming)]);
+  }, []);
+
+  // Deduplicated by id: EventSource reconnects on its own, and a replay after
+  // a reconnect can overlap with an event already delivered.
+  const onLiveMessage = useCallback((m: Message) => {
+    setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+  }, []);
+
+  const onStatus = useCallback((status: string) => {
+    setWithHuman(status === 'human' || status === 'escalated');
+  }, []);
+
+  useLiveMessages(apiUrl, widgetKey, convoId, visitor, {
+    onHistory,
+    onMessage: onLiveMessage,
+    onStatus,
+  });
 
   // Refs, not state: these change during a stream and must not each trigger a
   // re-render, and `send` must not be re-created on every token.
@@ -80,7 +105,7 @@ export function useConversation(
       void sendMessage(
         apiUrl,
         widgetKey,
-        { conversationId: convo.current, text: question, visitor: visitorId(widgetKey) },
+        { conversationId: convo.current, text: question, visitor },
         {
           onToken(chunk) {
             setMessages((prev) =>
@@ -127,7 +152,7 @@ export function useConversation(
         },
       );
     },
-    [apiUrl, widgetKey, fallbackLanguage, busy],
+    [apiUrl, widgetKey, fallbackLanguage, busy, visitor],
   );
 
   const retry = useCallback(() => {

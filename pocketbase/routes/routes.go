@@ -8,12 +8,14 @@
 package routes
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/ingest"
+	"github.com/mnoorhussin/anis-app/pocketbase/internal/live"
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/llm"
 )
 
@@ -22,6 +24,7 @@ type Deps struct {
 	Ingest  *ingest.Service
 	Crawler *ingest.Crawler
 	LLM     *llm.Registry
+	Live    *live.Hub
 }
 
 // Register mounts every custom route.
@@ -29,7 +32,21 @@ type Deps struct {
 // The /api/anis prefix keeps our surface clearly separate from PocketBase's
 // own /api/collections and /api/realtime, so a future PocketBase upgrade
 // cannot collide with an endpoint name we chose.
-func Register(e *core.ServeEvent, deps Deps) {
+func Register(e *core.ServeEvent, deps Deps) error {
+	// Fail at boot, not on a visitor's request.
+	//
+	// A nil dependency here is a wiring mistake, and without this check it
+	// surfaces as a panic inside one handler — a 500 for whoever happened to
+	// hit that endpoint first, with the rest of the product working normally.
+	// That is a slow, confusing way to find a one-line omission. (It has
+	// already happened once: Live was left unset and the stream endpoint
+	// 500'd while everything else passed.)
+	if deps.Ingest == nil || deps.Crawler == nil || deps.LLM == nil || deps.Live == nil {
+		return fmt.Errorf("routes: incomplete dependencies "+
+			"(ingest=%t crawler=%t llm=%t live=%t)",
+			deps.Ingest != nil, deps.Crawler != nil, deps.LLM != nil, deps.Live != nil)
+	}
+
 	g := e.Router.Group("/api/anis")
 
 	// --- Dashboard, authenticated ------------------------------------------
@@ -52,10 +69,13 @@ func Register(e *core.ServeEvent, deps Deps) {
 	g.GET("/widget/{key}/config", handleWidgetConfig)
 	g.POST("/widget/{key}/message", handleWidgetMessage(deps))
 	g.POST("/widget/{key}/escalate", handleWidgetEscalate(deps))
+	// Long-lived: this is how a visitor sees an agent's reply.
+	g.GET("/widget/{key}/stream", handleWidgetStream(deps))
 	// The browser preflights the POST because it carries a JSON content-type.
 	g.OPTIONS("/widget/{key}/config", handleWidgetPreflight)
 	g.OPTIONS("/widget/{key}/message", handleWidgetPreflight)
 	g.OPTIONS("/widget/{key}/escalate", handleWidgetPreflight)
+	g.OPTIONS("/widget/{key}/stream", handleWidgetPreflight)
 
 	// --- Billing -----------------------------------------------------------
 	//
@@ -63,6 +83,8 @@ func Register(e *core.ServeEvent, deps Deps) {
 	// signature header, which must be verified against the RAW body before
 	// anything is parsed.
 	g.POST("/stripe/webhook", handleStripeWebhook)
+
+	return nil
 }
 
 // handleStripeWebhook applies subscription and payment events.

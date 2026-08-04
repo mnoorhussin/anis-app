@@ -33,6 +33,7 @@ import (
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/db"
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/fetch"
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/ingest"
+	"github.com/mnoorhussin/anis-app/pocketbase/internal/live"
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/llm"
 	"github.com/mnoorhussin/anis-app/pocketbase/internal/rag"
 	_ "github.com/mnoorhussin/anis-app/pocketbase/migrations"
@@ -73,9 +74,16 @@ func main() {
 	// a vendor SDK, so the grounding prompt is one implementation rather than
 	// one per provider.
 	registry := llm.NewRegistry(newProvider(app))
+
+	// In-process fan-out to connected widgets. Single binary, single hub —
+	// see internal/live for why that is a deliberate fit and what would have
+	// to change if it ever runs as more than one process.
+	hub := live.New()
+	routes.RegisterLiveHooks(app, hub)
 	deps := routes.Deps{
 		Ingest: svc,
 		LLM:    registry,
+		Live:   hub,
 		Crawler: &ingest.Crawler{
 			Ingest: svc,
 			// A named User-Agent with a contact URL, so a site owner can
@@ -91,7 +99,9 @@ func main() {
 		if err := db.AssertVecAvailable(e.App.DB()); err != nil {
 			return err
 		}
-		routes.Register(e, deps)
+		if err := routes.Register(e, deps); err != nil {
+			return err
+		}
 		return e.Next()
 	})
 
