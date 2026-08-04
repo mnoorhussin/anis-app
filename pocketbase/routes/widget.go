@@ -184,7 +184,17 @@ func handleWidgetConfig(e *core.RequestEvent) error {
 		return e.NotFoundError("not found", nil)
 	}
 	applyWidgetCORS(e)
-	return e.JSON(http.StatusOK, publicWidgetConfig(workspace))
+
+	cfg := publicWidgetConfig(workspace)
+	// Whether the widget may offer a person at all. On a plan without
+	// escalation the option is not shown — and the endpoint refuses too, so
+	// this is a UI hint, not the enforcement.
+	cfg["handoffEnabled"] = false
+	if account, err := e.App.FindRecordById("accounts", workspace.GetString("account")); err == nil {
+		cfg["handoffEnabled"] = handoffEnabled(account)
+	}
+
+	return e.JSON(http.StatusOK, cfg)
 }
 
 // handleWidgetPreflight answers the browser's CORS preflight.

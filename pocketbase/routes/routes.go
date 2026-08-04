@@ -51,9 +51,11 @@ func Register(e *core.ServeEvent, deps Deps) {
 	// can only ever touch the one workspace the key names.
 	g.GET("/widget/{key}/config", handleWidgetConfig)
 	g.POST("/widget/{key}/message", handleWidgetMessage(deps))
+	g.POST("/widget/{key}/escalate", handleWidgetEscalate(deps))
 	// The browser preflights the POST because it carries a JSON content-type.
 	g.OPTIONS("/widget/{key}/config", handleWidgetPreflight)
 	g.OPTIONS("/widget/{key}/message", handleWidgetPreflight)
+	g.OPTIONS("/widget/{key}/escalate", handleWidgetPreflight)
 
 	// --- Billing -----------------------------------------------------------
 	//

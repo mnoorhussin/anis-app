@@ -7,6 +7,7 @@ import type { ThemeName } from '@anis/tokens';
 import { useEffect, useRef, useState } from 'preact/hooks';
 
 import type { PublicWidgetConfig } from './api.js';
+import { HandoffForm } from './HandoffForm.js';
 import { useConversation, type Message } from './useConversation.js';
 
 interface Props {
@@ -26,6 +27,8 @@ const UI = {
     retry: 'إعادة المحاولة',
     poweredBy: 'مدعوم بواسطة أنيس',
     conversation: 'المحادثة',
+    talkToPerson: 'تحدّث مع موظف',
+    withHuman: 'أحد الموظفين يتابع محادثتك الآن.',
   },
   en: {
     open: 'Open chat',
@@ -36,6 +39,8 @@ const UI = {
     retry: 'Try again',
     poweredBy: 'Powered by Anis',
     conversation: 'Conversation',
+    talkToPerson: 'Talk to a person',
+    withHuman: 'A member of the team is looking after this conversation.',
   },
 } as const;
 
@@ -52,7 +57,9 @@ export function App({ apiUrl, widgetKey, config }: Props) {
   const [uiLang, setUiLang] = useState<SupportedLanguage>(() => initialLanguage(config));
   const [draft, setDraft] = useState('');
 
-  const { messages, busy, failed, send, retry } = useConversation(apiUrl, widgetKey, uiLang);
+  const { messages, conversationId, withHuman, lastQuestion, busy, failed, send, retry } =
+    useConversation(apiUrl, widgetKey, uiLang);
+  const [handoff, setHandoff] = useState(false);
   const t = UI[uiLang];
   const dir = uiLang === 'ar' ? 'rtl' : 'ltr';
 
@@ -174,6 +181,41 @@ export function App({ apiUrl, widgetKey, config }: Props) {
         {messages.map((m) => (
           <Bubble key={m.id} message={m} />
         ))}
+
+        {/* The offer appears only after a genuine refusal, only when the
+            plan allows it, and only once a conversation exists to attach it
+            to. A person cannot be offered before there is anything to hand
+            over. */}
+        {!withHuman &&
+          config.handoffEnabled &&
+          conversationId &&
+          messages.at(-1)?.refused &&
+          (handoff ? (
+            <HandoffForm
+              apiUrl={apiUrl}
+              widgetKey={widgetKey}
+              conversationId={conversationId}
+              question={lastQuestion}
+              lang={uiLang}
+              onDismiss={() => setHandoff(false)}
+            />
+          ) : (
+            <div>
+              <button
+                type="button"
+                onClick={() => setHandoff(true)}
+                class="rounded-full border border-border-soft px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2"
+              >
+                {t.talkToPerson}
+              </button>
+            </div>
+          ))}
+
+        {withHuman && (
+          <p dir="auto" role="status" class="text-center text-xs text-muted">
+            {t.withHuman}
+          </p>
+        )}
 
         {failed && (
           <div dir="auto" class="flex flex-col items-start gap-2">

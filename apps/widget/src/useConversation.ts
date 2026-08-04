@@ -23,6 +23,12 @@ export interface Message {
 
 export interface ConversationState {
   messages: Message[];
+  /** The server-side conversation, once one exists. */
+  conversationId: string | null;
+  /** True once a person has taken the conversation over. */
+  withHuman: boolean;
+  /** The most recent visitor question, for the handoff form. */
+  lastQuestion: string;
   /** True from send until the reply completes. */
   busy: boolean;
   /** Set when the request failed outright — a network problem, not a refusal. */
@@ -42,6 +48,8 @@ export function useConversation(
   const [messages, setMessages] = useState<Message[]>([]);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [withHuman, setWithHuman] = useState(false);
+  const [convoId, setConvoId] = useState<string | null>(conversationId(widgetKey));
 
   // Refs, not state: these change during a stream and must not each trigger a
   // re-render, and `send` must not be re-created on every token.
@@ -93,13 +101,20 @@ export function useConversation(
           },
           onDone(meta) {
             convo.current = meta.conversationId;
+            setConvoId(meta.conversationId);
             setConversationId(widgetKey, meta.conversationId);
+            if (meta.withHuman) setWithHuman(true);
             setMessages((prev) =>
-              prev.map((m) =>
-                m.id === replyId
-                  ? { ...m, streaming: false, outcome: meta.outcome, refused: meta.offerHandoff }
-                  : m,
-              ),
+              prev
+                // A conversation a person has taken over gets no reply at
+                // all, so the empty placeholder is removed rather than left
+                // as a blank bubble.
+                .filter((m) => !(m.id === replyId && meta.withHuman))
+                .map((m) =>
+                  m.id === replyId
+                    ? { ...m, streaming: false, outcome: meta.outcome, refused: meta.offerHandoff }
+                    : m,
+                ),
             );
             setBusy(false);
           },
@@ -119,5 +134,14 @@ export function useConversation(
     if (lastSent.current) send(lastSent.current);
   }, [send]);
 
-  return { messages, busy, failed, send, retry };
+  return {
+    messages,
+    conversationId: convoId,
+    withHuman,
+    lastQuestion: lastSent.current,
+    busy,
+    failed,
+    send,
+    retry,
+  };
 }

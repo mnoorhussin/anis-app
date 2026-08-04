@@ -6,6 +6,7 @@ import { formatNumber } from '../i18n.js';
 import { useLanguage } from '../lib/LanguageContext.js';
 import { pb } from '../lib/pocketbase.js';
 import { useSignOut } from '../lib/useAuth.js';
+import { InboxScreen } from './InboxScreen.js';
 import { SourcesCard } from './SourcesCard.js';
 
 interface Workspace {
@@ -22,6 +23,7 @@ export function WorkspaceScreen() {
   const { t, lang, setLang } = useLanguage();
   const signOut = useSignOut();
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [tab, setTab] = useState<'workspace' | 'inbox'>('workspace');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -64,6 +66,26 @@ export function WorkspaceScreen() {
         </div>
       </header>
 
+      {workspace && (
+        <nav className="flex gap-1 rounded-xl bg-surface-2 p-1" aria-label="Sections">
+          {(['workspace', 'inbox'] as const).map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTab(id)}
+              aria-current={tab === id ? 'page' : undefined}
+              className={`grow rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                tab === id
+                  ? 'bg-surface text-foreground shadow-soft'
+                  : 'text-muted hover:text-foreground'
+              }`}
+            >
+              {t(id === 'workspace' ? 'tabWorkspace' : 'tabInbox')}
+            </button>
+          ))}
+        </nav>
+      )}
+
       {error && (
         <Card>
           <p role="alert" className="text-sm text-danger">
@@ -72,7 +94,9 @@ export function WorkspaceScreen() {
         </Card>
       )}
 
-      {workspace && (
+      {workspace && tab === 'inbox' && <InboxScreen workspaceId={workspace.id} plan={plan} />}
+
+      {workspace && tab === 'workspace' && (
         <>
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-3">

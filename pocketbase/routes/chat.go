@@ -84,6 +84,20 @@ func handleWidgetMessage(deps Deps) func(*core.RequestEvent) error {
 			return e.InternalServerError("could not save the message", err)
 		}
 
+		// A person is handling this conversation, or is about to. The
+		// assistant must not answer over them.
+		//
+		// This is a hard rule from the brief, and it is enforced here rather
+		// than in the widget because the endpoint is public: hiding the
+		// composer would not stop a direct call. The visitor's message is
+		// still saved — that is the whole point, the agent needs to see what
+		// they said — and it appears in the inbox in real time.
+		if status := conversation.GetString("status"); status == "human" || status == "escalated" {
+			e.App.Logger().Info("assistant stayed silent; a person has the conversation",
+				"conversation", conversation.Id, "status", status)
+			return streamSilence(e, conversation)
+		}
+
 		// Over the cap: no generation at all. The visitor is offered a person
 		// rather than shown our billing state — they did nothing wrong, and
 		// the business's spending is not their business.
@@ -175,6 +189,27 @@ func beginSSE(e *core.RequestEvent) {
 	// with flush_interval -1, but a customer may sit behind their own CDN.
 	h.Set("X-Accel-Buffering", "no")
 	e.Response.WriteHeader(http.StatusOK)
+}
+
+// streamSilence acknowledges a message without answering it.
+//
+// Sent when a person has the conversation. No token event at all: an
+// "an agent will reply shortly" line would be the product speaking on the
+// agent's behalf, and if nobody is actually online it becomes a promise we
+// did not keep. The widget shows the message as delivered and waits — which
+// is what a person on the other end would expect from any chat.
+//
+// Nothing is metered: no reply was generated.
+func streamSilence(e *core.RequestEvent, conversation *core.Record) error {
+	beginSSE(e)
+	return sse(e, "done", map[string]any{
+		"conversationId": conversation.Id,
+		"outcome":        "human",
+		"offerHandoff":   false,
+		// Tells the widget a person is handling it, so it can say so once
+		// rather than leaving the visitor watching an empty panel.
+		"withHuman": true,
+	})
 }
 
 // streamRefusal sends the constant refusal and records it.

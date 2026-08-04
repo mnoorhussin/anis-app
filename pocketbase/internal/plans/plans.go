@@ -77,5 +77,40 @@ func For(plan string) Limits {
 	return catalogue[Free]
 }
 
+// features per plan, mirroring PLAN_FEATURES in packages/types/src/plans.ts.
+var features = map[ID][]string{
+	Free:    {},
+	Starter: {"basicAnalytics", "leadCapture", "emailEscalation"},
+	Growth: {"basicAnalytics", "advancedAnalytics", "leadCapture", "emailEscalation",
+		"removeBranding", "knowledgeGaps", "humanTakeover", "autoSourceRefresh", "multipleMembers"},
+	Pro: {"basicAnalytics", "advancedAnalytics", "leadCapture", "emailEscalation",
+		"removeBranding", "knowledgeGaps", "humanTakeover", "autoSourceRefresh", "multipleMembers",
+		"apiAccess", "advancedActions", "prioritySupport"},
+	Agency: {"basicAnalytics", "advancedAnalytics", "leadCapture", "emailEscalation",
+		"removeBranding", "knowledgeGaps", "humanTakeover", "autoSourceRefresh", "multipleMembers",
+		"apiAccess", "advancedActions", "prioritySupport",
+		"clientWorkspaces", "whiteLabel", "clientInvitations", "brandedReports", "workspaceDuplication"},
+}
+
+// notYetShipped mirrors NOT_YET_SHIPPED in packages/types.
+//
+// A feature sold on a plan but not built must not be switchable on by an
+// entitlement alone — that is the truthful-claims gate, enforced rather than
+// documented.
+var notYetShipped = map[string]bool{"advancedActions": true}
+
+// HasFeature reports whether a plan sells a feature AND it is actually built.
+func HasFeature(plan, feature string) bool {
+	if notYetShipped[feature] {
+		return false
+	}
+	for _, f := range features[ID(plan)] {
+		if f == feature {
+			return true
+		}
+	}
+	return false
+}
+
 // IDs lists every plan, in order.
 func IDs() []ID { return []ID{Free, Starter, Growth, Pro, Agency} }

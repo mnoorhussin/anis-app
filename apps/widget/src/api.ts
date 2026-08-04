@@ -30,7 +30,14 @@ export type PublicWidgetConfig = Pick<
   | 'theme'
   | 'position'
   | 'language'
->;
+> & {
+  /**
+   * Whether this plan may hand a conversation to a person. A UI hint only —
+   * the endpoint enforces the same entitlement, because the widget key is
+   * public and anyone can call it directly.
+   */
+  handoffEnabled: boolean;
+};
 
 /**
  * Fetch the widget's configuration.
@@ -65,6 +72,8 @@ export interface StreamDone {
    * of refusing well rather than guessing.
    */
   offerHandoff: boolean;
+  /** True when a person has the conversation and the assistant stayed silent. */
+  withHuman?: boolean;
 }
 
 export interface StreamCallbacks {
@@ -146,5 +155,30 @@ export async function sendMessage(
         // rest of the reply is still worth showing.
       }
     }
+  }
+}
+
+/**
+ * Hand the conversation to a person.
+ *
+ * Returns false on any failure. The widget shows a plain 'that did not send'
+ * rather than an error from us: a visitor who has just typed their phone
+ * number needs to know whether it arrived, not why it did not.
+ */
+export async function requestHandoff(
+  apiUrl: string,
+  key: string,
+  body: { conversationId: string; name: string; contact: string; question: string },
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${apiUrl}/api/anis/widget/${encodeURIComponent(key)}/escalate`, {
+      method: 'POST',
+      credentials: 'omit',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return res.ok;
+  } catch {
+    return false;
   }
 }
