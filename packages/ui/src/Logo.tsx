@@ -1,60 +1,37 @@
-import { useId } from 'react';
+import { brand, fonts, ijamDots } from '@anis/tokens';
 
-/**
- * The Anis mark: gradient speech bubble with an orbiting companion dot.
- *
- * The gradient's SVG id comes from `useId()` because SVG ids are
- * document-global — two logos on one page with a hard-coded id make the second
- * render with the first one's (possibly removed) gradient, which shows up as a
- * black or invisible mark only once a second logo appears somewhere.
- */
+/** Arabic leads in both locales. The mark shares its geometry with the typing dots. */
 export function Logo({
   wordmark = true,
-  lang = 'en',
+  lang = 'ar',
   className = '',
 }: {
   wordmark?: boolean;
   lang?: 'en' | 'ar';
   className?: string;
 }) {
-  const uid = useId();
-  const gradientId = `anis-grad-${uid}`;
-
   return (
     <span className={`inline-flex items-center gap-2.5 ${className}`}>
-      <svg
-        className="h-8 w-8 shrink-0"
-        viewBox="0 0 40 40"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
-      >
-        <defs>
-          <linearGradient
-            id={gradientId}
-            x1="4"
-            y1="6"
-            x2="32"
-            y2="32"
-            gradientUnits="userSpaceOnUse"
-          >
-            <stop stopColor="#5A5AF0" />
-            <stop offset="1" stopColor="#37E0C8" />
-          </linearGradient>
-        </defs>
-        <rect x="3" y="6" width="27" height="24" rx="9.5" fill={`url(#${gradientId})`} />
-        <path d="M11 26 L8 34 L20 29 Z" fill={`url(#${gradientId})`} />
-        <circle cx="35" cy="7" r="3.9" fill="#5A5AF0" />
+      <svg className="h-8 w-8 shrink-0" viewBox="0 0 40 40" aria-hidden="true">
+        <rect x="1" y="1" width="38" height="38" rx="10.5" fill={brand.ink} />
+        {ijamDots.map((dot, i) => (
+          <circle key={i} {...dot} fill={brand.saffron} />
+        ))}
       </svg>
       {wordmark ? (
         <span
-          className={`font-display text-xl font-bold ${lang === 'ar' ? '' : 'lowercase tracking-tight'}`}
-          lang={lang}
+          className="inline-flex flex-col leading-none"
+          aria-label={lang === 'ar' ? 'أنيس' : 'Anis'}
         >
-          {lang === 'ar' ? 'أنيس' : 'anis'}
+          <span lang="ar" className="text-xl font-bold" style={{ fontFamily: fonts.displayArabic }}>
+            أنيس
+          </span>
+          <span lang="en" className="text-xs" style={{ fontFamily: fonts.display }}>
+            Anis
+          </span>
         </span>
       ) : (
-        <span className="sr-only">Anis</span>
+        <span className="sr-only">أنيس</span>
       )}
     </span>
   );

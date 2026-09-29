@@ -30,7 +30,8 @@ func TestWidgetConfigDecodesPocketBaseJSON(t *testing.T) {
 	ws.Set("name", "متجر النخبة")
 	ws.Set("widget_config", types.JSONRaw(`{
 		"name": "أنيس",
-		"accentColor": "#37e0c8",
+		"accentColor": "#cdb37a",
+		"theme": "dark",
 		"greeting": {"ar": "أهلاً", "en": "Hello"},
 		"suggestedQuestions": {"ar": ["س؟"], "en": ["Q?"]},
 		"badgeOn": false,
@@ -41,7 +42,7 @@ func TestWidgetConfigDecodesPocketBaseJSON(t *testing.T) {
 	if len(cfg) == 0 {
 		t.Fatal("widget_config decoded to nothing — the customer's settings are being discarded")
 	}
-	if got := cfg["accentColor"]; got != "#37e0c8" {
+	if got := cfg["accentColor"]; got != "#cdb37a" {
 		t.Errorf("accentColor = %v, want the configured value", got)
 	}
 	if got, ok := cfg["confidenceFloor"].(float64); !ok || got != 0.55 {
@@ -49,6 +50,9 @@ func TestWidgetConfigDecodesPocketBaseJSON(t *testing.T) {
 	}
 
 	pub := publicWidgetConfig(ws)
+	if pub["accentColor"] != "#cdb37a" || pub["theme"] != "dark" {
+		t.Fatal("customer color and theme overrides must survive the brand default")
+	}
 	if got := pub["name"]; got != "أنيس" {
 		t.Errorf("name = %v, want the configured assistant name", got)
 	}
@@ -65,8 +69,11 @@ func TestWidgetConfigFallsBackWhenUnset(t *testing.T) {
 	if pub["name"] != "Acme" {
 		t.Errorf("name should fall back to the workspace name, got %v", pub["name"])
 	}
-	if pub["accentColor"] != "#5a5af0" {
-		t.Errorf("accentColor should fall back to brand iris, got %v", pub["accentColor"])
+	if pub["accentColor"] != "#0f6b5c" {
+		t.Errorf("accentColor should fall back to brand oasis, got %v", pub["accentColor"])
+	}
+	if pub["theme"] != "light" || pub["language"] != "auto" {
+		t.Fatal("default is a light brand card with automatic language detection")
 	}
 	if pub["badgeOn"] != true {
 		t.Error("the badge must default to ON — removing it is a paid feature")

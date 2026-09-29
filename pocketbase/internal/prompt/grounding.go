@@ -19,9 +19,9 @@ import (
 // weak, the reply is produced WITHOUT calling the model at all. A refusal is
 // the one answer we must never risk the model paraphrasing into a guess.
 const (
-	RefusalAR = "لم أجد هذه المعلومة في مصادر الشركة. هل ترغب في تحويل سؤالك إلى أحد الموظفين؟"
-	RefusalEN = "I couldn't find that in the company's sources. " +
-		"Would you like me to pass your question to a member of the team?"
+	RefusalAR = "لم أجد هذه المعلومة في مصادر الشركة — هل أحوّلك إلى أحد الموظفين؟"
+	RefusalEN = "We couldn't find that in the company's sources. " +
+		"Would you like us to pass your question to the team?"
 )
 
 // Refusal returns the refusal in the visitor's language.

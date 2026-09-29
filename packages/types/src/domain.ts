@@ -155,8 +155,8 @@ export const DEFAULT_CONFIDENCE_FLOOR = 0.35;
  * it cannot drift from what the marketing site promises.
  */
 export const REFUSAL_TEMPLATE = {
-  ar: 'لم أجد هذه المعلومة في مصادر الشركة. هل ترغب في تحويل سؤالك إلى أحد الموظفين؟',
-  en: "I couldn't find that in the company's sources. Would you like me to pass your question to a member of the team?",
+  ar: 'لم أجد هذه المعلومة في مصادر الشركة — هل أحوّلك إلى أحد الموظفين؟',
+  en: "We couldn't find that in the company's sources. Would you like us to pass your question to the team?",
 } as const;
 
 /* -------------------------------------------------------------------------
@@ -192,7 +192,7 @@ export function dirFor(lang: SupportedLanguage): 'rtl' | 'ltr' {
 export interface WidgetConfig {
   /** Assistant display name, e.g. "أنيس" or the business's own name. */
   name: string;
-  /** Accent colour. Defaults to brand iris. */
+  /** Accent colour. Defaults to brand oasis. */
   accentColor: string;
   /** URL of the business's logo, or null to show the Anis mark. */
   logoUrl: string | null;
@@ -214,16 +214,16 @@ export interface WidgetConfig {
 
 export const DEFAULT_WIDGET_CONFIG: WidgetConfig = {
   name: 'Anis',
-  accentColor: '#5a5af0',
+  accentColor: '#0f6b5c',
   logoUrl: null,
   greeting: {
-    ar: 'مرحباً! كيف أقدر أساعدك؟',
-    en: 'Hi! How can I help?',
+    ar: 'أهلًا بك. كيف يمكنني مساعدتك؟',
+    en: 'Welcome. How can we help?',
   },
   suggestedQuestions: { ar: [], en: [] },
   allowedDomains: [],
   badgeOn: true,
-  theme: 'auto',
+  theme: 'light',
   position: 'right',
   language: 'auto',
 };

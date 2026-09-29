@@ -5,7 +5,7 @@ import { requestHandoff } from './api.js';
 
 const COPY = {
   ar: {
-    intro: 'اترك بياناتك وسيتواصل معك أحد الموظفين.',
+    intro: 'يسعدنا إيصال سؤالك إلى الفريق. اترك وسيلة تواصل ليتمكّن أحد الموظفين من الرد عليك.',
     name: 'الاسم (اختياري)',
     contact: 'البريد الإلكتروني أو رقم الجوال',
     submit: 'أرسل',
@@ -14,18 +14,18 @@ const COPY = {
     // Says a person will follow up, NOT that one is waiting now. We cannot
     // detect who is online, and implying a live agent that does not exist is
     // the kind of promise this product is built to avoid.
-    sent: 'تم الاستلام. سيتواصل معك أحد الموظفين قريباً.',
+    sent: 'شكرًا لك. وصل طلبك إلى الفريق، ويمكنهم التواصل معك عبر البيانات التي أرسلتها.',
     failed: 'تعذّر الإرسال. حاول مرة أخرى.',
     needContact: 'نحتاج بريدك أو رقمك للتواصل معك.',
   },
   en: {
-    intro: 'Leave your details and someone from the team will get back to you.',
+    intro: 'We can pass your question to the team. Leave your contact details so they can reply.',
     name: 'Name (optional)',
     contact: 'Email or phone number',
     submit: 'Send',
     sending: 'Sending…',
     cancel: 'No thanks',
-    sent: 'Got it. Someone from the team will be in touch.',
+    sent: 'Thank you. We’ve received your request. The team can reach you using the details you shared.',
     failed: "That didn't send. Please try again.",
     needContact: 'We need an email or phone number to reach you.',
   },

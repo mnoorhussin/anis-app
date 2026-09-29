@@ -1,14 +1,8 @@
-<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Anis">
-  <defs>
-    <linearGradient id="anisGrad" x1="4" y1="6" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#5A5AF0" />
-      <stop offset="1" stop-color="#37E0C8" />
-    </linearGradient>
-  </defs>
-  <!-- speech bubble -->
-  <rect x="3" y="6" width="27" height="24" rx="9.5" fill="url(#anisGrad)" />
-  <!-- tail -->
-  <path d="M11 26 L8 34 L20 29 Z" fill="url(#anisGrad)" />
-  <!-- orbiting companion dot -->
-  <circle cx="35" cy="7" r="3.9" fill="#5A5AF0" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+  <!-- Anis mark: the three i'jam dots (ث/ش) — Arabic-native, a typing
+       indicator, and the pause before a considered answer. -->
+  <rect x="1" y="1" width="38" height="38" rx="10.5" fill="#231A10"/>
+  <circle cx="20" cy="13.5" r="4.6" fill="#E3A84E"/>
+  <circle cx="12.8" cy="26" r="4.6" fill="#E3A84E"/>
+  <circle cx="27.2" cy="26" r="4.6" fill="#E3A84E"/>
 </svg>

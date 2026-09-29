@@ -60,7 +60,7 @@ export function BillingScreen() {
     return (
       <Card>
         {error ? (
-          <p role="alert" className="text-sm text-danger">
+          <p role="alert" className="text-sm text-status-danger">
             {error}
           </p>
         ) : (
@@ -80,12 +80,12 @@ export function BillingScreen() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-sm text-muted">{t('currentPlan')}</p>
-            <h2 className="font-display text-2xl font-semibold">{plan.name}</h2>
+            <h2 className="text-2xl font-semibold">{plan.name}</h2>
             {summary.subscriptionStatus === 'past_due' && (
               // Said plainly and without alarm: Stripe is still retrying, and
               // the plan has NOT changed. Telling someone they have been
               // downgraded when they have not is worse than saying nothing.
-              <p className="mt-1 max-w-prose text-sm text-warning">{t('statusPastDue')}</p>
+              <p className="mt-1 max-w-prose text-sm text-status-warning">{t('statusPastDue')}</p>
             )}
             {summary.cancelAtPeriodEnd && summary.currentPeriodEnd && (
               <p className="mt-1 text-sm text-muted">
@@ -125,16 +125,16 @@ export function BillingScreen() {
           >
             <div
               className={`h-full rounded-full transition-[width] duration-500 ease-out-quint ${
-                over ? 'bg-danger' : ratio >= WARN_AT ? 'bg-warning' : 'bg-gradient-brand'
+                over ? 'bg-danger' : ratio >= WARN_AT ? 'bg-warning' : 'bg-oasis'
               }`}
               // Capped at 100% so going over does not overflow the track.
               style={{ width: `${Math.min(100, ratio * 100)}%` }}
             />
           </div>
           {over ? (
-            <p className="mt-2 text-sm text-danger">{t('usageExceeded')}</p>
+            <p className="mt-2 text-sm text-status-danger">{t('usageExceeded')}</p>
           ) : ratio >= WARN_AT ? (
-            <p className="mt-2 text-sm text-warning">{t('usageWarning')}</p>
+            <p className="mt-2 text-sm text-status-warning">{t('usageWarning')}</p>
           ) : null}
           {summary.overageUsd > 0 && (
             <p className="mt-2 text-sm text-muted">
@@ -166,7 +166,7 @@ export function BillingScreen() {
           </ul>
         )}
         {error && (
-          <p role="alert" className="mt-3 text-sm text-danger">
+          <p role="alert" className="mt-3 text-sm text-status-danger">
             {error}
           </p>
         )}
@@ -203,7 +203,7 @@ function SpendingCap({ current, onSaved }: { current: number; onSaved: () => voi
 
   return (
     <Card>
-      <h3 className="font-display text-lg font-semibold">{t('spendingCap')}</h3>
+      <h3 className="text-lg font-semibold">{t('spendingCap')}</h3>
       <p className="mt-1 max-w-prose text-sm text-muted">{t('spendingCapHelp')}</p>
       <form onSubmit={save} className="mt-3 flex flex-wrap items-center gap-2">
         <span className="text-sm text-muted">$</span>
@@ -222,7 +222,7 @@ function SpendingCap({ current, onSaved }: { current: number; onSaved: () => voi
         </Button>
       </form>
       {error && (
-        <p role="alert" className="mt-2 text-sm text-danger">
+        <p role="alert" className="mt-2 text-sm text-status-danger">
           {error}
         </p>
       )}

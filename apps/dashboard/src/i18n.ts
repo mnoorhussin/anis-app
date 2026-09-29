@@ -332,7 +332,7 @@ export function formatNumber(n: number): string {
 
 const STORAGE_KEY = 'anis-lang';
 
-/** Remembered choice, else the browser's preference, else English. */
+/** Remembered choice, else Arabic — the dashboard's primary language. */
 export function initialLanguage(): SupportedLanguage {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -340,7 +340,7 @@ export function initialLanguage(): SupportedLanguage {
   } catch {
     /* private mode */
   }
-  return navigator.language?.toLowerCase().startsWith('ar') ? 'ar' : 'en';
+  return 'ar';
 }
 
 export function persistLanguage(lang: SupportedLanguage): void {

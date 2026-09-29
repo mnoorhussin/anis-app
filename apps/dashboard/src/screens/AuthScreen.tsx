@@ -120,7 +120,7 @@ export function AuthScreen() {
           )}
 
           {error && (
-            <p role="alert" className="text-sm text-danger">
+            <p role="alert" className="text-sm text-status-danger">
               {error}
             </p>
           )}
@@ -141,7 +141,7 @@ export function AuthScreen() {
         {mode === 'signin' ? t('noAccount') : t('haveAccount')}{' '}
         <button
           type="button"
-          className="font-medium text-iris underline-offset-4 hover:underline"
+          className="font-medium text-accent underline-offset-4 hover:underline"
           onClick={() => {
             setMode(mode === 'signin' ? 'signup' : 'signin');
             setError(null);

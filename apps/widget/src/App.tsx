@@ -3,7 +3,7 @@
  */
 
 import { detectLanguage, type SupportedLanguage } from '@anis/types';
-import type { ThemeName } from '@anis/tokens';
+import { ijamDots, type ThemeName } from '@anis/tokens';
 import { useEffect, useRef, useState } from 'preact/hooks';
 
 import type { PublicWidgetConfig } from './api.js';
@@ -123,18 +123,18 @@ export function App({ apiUrl, widgetKey, config }: Props) {
       lang={uiLang}
       role="dialog"
       aria-label={config.name}
-      class="flex h-[min(34rem,80vh)] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border-soft bg-surface shadow-2xl"
+      class="flex h-[min(34rem,80vh)] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border-soft bg-surface shadow-lifted"
     >
-      <header class="flex items-center gap-3 border-b border-border-soft px-4 py-3">
+      <header class="flex items-center gap-3 bg-accent text-accent-contrast px-4 py-3">
         {config.logoUrl && <img src={config.logoUrl} alt="" class="h-6 w-6 rounded" />}
-        <span dir="auto" class="grow truncate font-medium text-foreground">
+        <span dir="auto" class="grow truncate font-medium">
           {config.name}
         </span>
         <button
           type="button"
           onClick={() => setOpen(false)}
           aria-label={t.close}
-          class="rounded-lg p-1 text-muted hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2"
+          class="rounded-lg p-1 hover:bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-2"
         >
           <svg
             viewBox="0 0 24 24"
@@ -367,14 +367,16 @@ function Rating({
 
 function TypingDots() {
   return (
-    <span class="inline-flex items-center gap-1 py-1" aria-hidden="true">
-      {[0, 1, 2].map((i) => (
-        <span
+    <svg viewBox="0 0 40 40" class="h-7 w-7 text-saffron" aria-hidden="true">
+      {ijamDots.map((dot, i) => (
+        <circle
           key={i}
-          class="h-1.5 w-1.5 rounded-full bg-muted"
-          style={{ animation: `typing-dot 1.2s ${i * 0.15}s infinite` }}
+          {...dot}
+          fill="currentColor"
+          class="animate-typing-dot"
+          style={{ animationDelay: `${i * 0.15}s` }}
         />
       ))}
-    </span>
+    </svg>
   );
 }
