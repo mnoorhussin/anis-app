@@ -1,117 +1,116 @@
-/**
- * Guards against the two halves of the token system drifting apart.
- *
- * `theme.css` is what the apps actually render with; `tokens.ts` is what JS
- * reads when it needs a colour it cannot get from a custom property (charts,
- * the widget's shadow root, OG images). Nothing enforces that they agree
- * except this file. A silent drift means the widget renders in one brand and
- * the dashboard in another, which is the kind of bug nobody reports and
- * everybody notices.
- */
-
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import * as tokens from './tokens.js';
+import {
+  brand,
+  dark,
+  darkStatusSoft,
+  statusForeground,
+  displayType,
+  easing,
+  fonts,
+  gray,
+  ijamDots,
+  light,
+  logoMarkSvg,
+  radii,
+  shadows,
+  status,
+  themeCssVars,
+} from './tokens.js';
 
-import { brand, dark, gradients, gray, light, logoMarkSvg, status } from './tokens.js';
-
-const themeCss = readFileSync(fileURLToPath(new URL('./theme.css', import.meta.url)), 'utf8');
-
-/**
- * Reads a custom property out of theme.css.
- *
- * `scope` narrows the search to one rule block, because the same property name
- * is declared several times with different values — `--muted` exists in
- * `:root`, in `:root[data-theme='dark']`, and again in the
- * prefers-color-scheme block. Matching the first occurrence would silently
- * compare the light value against the dark expectation.
- */
-function cssVar(prop: string, scope?: string): string | undefined {
-  const source = scope ? (themeCss.split(scope)[1] ?? '') : themeCss;
-  const block = scope ? (source.split('}')[0] ?? '') : source;
-  const match = new RegExp(`${prop}\\s*:\\s*([^;]+);`).exec(block);
-  return match?.[1]?.trim();
+const themeCss = readFileSync(new URL('./theme.css', import.meta.url), 'utf8');
+const kebab = (s: string) =>
+  s.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`).replace(/([a-z])(\d)/g, '$1-$2');
+const normalize = (s: string) => s.replace(/\s+/g, ' ').trim();
+function declarations(scope: string): Record<string, string> {
+  const block = themeCss.split(scope)[1]?.split('}')[0];
+  if (!block) throw new Error(`Missing scope: ${scope}`);
+  return Object.fromEntries(
+    [...block.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1]!, normalize(m[2]!)]),
+  );
 }
+const css = declarations('@theme {');
 
-describe('brand colours', () => {
-  it.each(Object.entries(brand))('%s matches theme.css', (name, value) => {
-    // brand.irisBright → --color-iris-bright
-    const prop = `--color-${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
-    expect(cssVar(prop)).toBe(value);
+describe('CSS/TS parity (all shared tokens, both directions)', () => {
+  const expected = Object.fromEntries([
+    ...Object.entries({ ...brand, ...status }).map(([k, v]) => [`--color-${kebab(k)}`, v]),
+    ...Object.entries(gray).map(([k, v]) => [`--color-gray-${k}`, v]),
+    ...Object.entries(radii).map(([k, v]) => [`--radius-${k}`, v]),
+    ...Object.entries(easing).map(([k, v]) => [`--ease-${kebab(k)}`, v]),
+    ...Object.entries(displayType).map(([k, v]) => [`--text-${k}`, v]),
+    ...Object.entries(fonts)
+      .filter(([k]) => !['displayArabic', 'system'].includes(k))
+      .map(([k, v]) => [`--font-${k}`, v]),
+  ]);
+  it('matches every shared theme declaration, including additions', () => {
+    const shared = Object.fromEntries(
+      Object.entries(css).filter(([k]) => !k.startsWith('--animate-')),
+    );
+    expect(shared).toEqual(expected);
   });
-
-  it('the signature gradient is identical in both files', () => {
-    expect(cssVar('--gradient-brand', ':root {')).toBe(gradients.brand);
+  it.each([
+    ['light', ':root {', light],
+    ['dark', ":root[data-theme='dark'] {", dark],
+    ['dark', ":root:not([data-theme='light']) {", dark],
+  ] as const)('%s semantics and shadows match %s', (name, scope, theme) => {
+    const expected = Object.fromEntries(
+      Object.entries(theme).map(([k, v]) => [`--${kebab(k)}`, v]),
+    );
+    for (const [key, value] of Object.entries(statusForeground[name]))
+      expected[`--status-${key}`] = value;
+    if (name === 'dark')
+      for (const [key, value] of Object.entries(darkStatusSoft))
+        expected[`--color-${kebab(key)}`] = value;
+    expected['--shadow-soft'] = shadows[name].soft;
+    expected['--shadow-lifted'] = shadows[name].lifted;
+    expect(declarations(scope)).toEqual(expected);
+    for (const [key, value] of Object.entries(expected))
+      expect(themeCssVars(name)).toContain(`${key}: ${value};`);
+  });
+  it('promotes the Arabic faces on RTL surfaces', () => {
+    const ar = declarations("[dir='rtl'] {");
+    expect(ar['--font-sans']).toBe(fonts.arabic);
+    expect(ar['--font-display']).toBe(fonts.displayArabic);
   });
 });
 
-describe('neutral ramp', () => {
-  it.each(Object.entries(gray))('gray-%s matches theme.css', (step, value) => {
-    expect(cssVar(`--color-gray-${step}`)).toBe(value);
-  });
+it('keeps the neutral ramp strictly light to dark', () => {
+  const values = Object.values(gray).map((hex) => parseInt(hex.slice(1), 16));
+  for (let i = 1; i < values.length; i++) expect(values[i]).toBeLessThan(values[i - 1]!);
+});
+it('has no legacy palette, gradients, glass or glow', () => {
+  expect(tokens).not.toHaveProperty('gradients');
+  expect(themeCss).not.toMatch(
+    /iris|aqua|linear-gradient|radial-gradient|backdrop-filter|glow|Satoshi/i,
+  );
+});
+it('reuses the source mark geometry without SVG ID collisions', () => {
+  expect(ijamDots).toHaveLength(3);
+  const svg = logoMarkSvg();
+  expect(svg).toContain(brand.ink);
+  expect(svg).toContain(brand.saffron);
+  expect(svg).not.toMatch(/id=|url\(#/);
+  for (const d of ijamDots) expect(svg).toContain(`cx="${d.cx}" cy="${d.cy}" r="${d.r}"`);
+});
 
-  it('runs light to dark without a repeated or inverted step', () => {
-    const steps = Object.values(gray).map((hex) => {
-      const n = parseInt(hex.slice(1), 16);
-      // Rough perceptual weighting is enough to catch an ordering mistake.
-      return 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
-    });
-    for (let i = 1; i < steps.length; i++) {
-      expect(steps[i]!).toBeLessThan(steps[i - 1]!);
+function luminance(hex: string): number {
+  const values = [1, 3, 5]
+    .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map((s) => (s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4));
+  return values[0]! * 0.2126 + values[1]! * 0.7152 + values[2]! * 0.0722;
+}
+it('status labels pass AA on surfaces and tinted badges in both themes', () => {
+  for (const mode of ['light', 'dark'] as const) {
+    const surfaces = mode === 'light' ? light : dark;
+    for (const key of ['success', 'warning', 'danger', 'info'] as const) {
+      const foreground = statusForeground[mode][key];
+      const tint = (mode === 'light' ? status : darkStatusSoft)[`${key}Soft`];
+      for (const bg of [surfaces.background, surfaces.surface, surfaces.surface2, tint]) {
+        const a = luminance(foreground),
+          b = luminance(bg);
+        expect((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)).toBeGreaterThanOrEqual(4.5);
+      }
     }
-  });
-});
-
-describe('status colours', () => {
-  it.each(Object.entries(status))('%s matches theme.css', (name, value) => {
-    const prop = `--color-${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
-    // The dark theme overrides the `soft` fills, so only check the light
-    // declarations inside the top-level @theme block.
-    expect(cssVar(prop, '@theme {')).toBe(value);
-  });
-});
-
-describe('semantic themes', () => {
-  it('light surfaces match :root', () => {
-    expect(cssVar('--background', ':root {')).toBe(light.background);
-    expect(cssVar('--foreground', ':root {')).toBe(light.foreground);
-    expect(cssVar('--muted', ':root {')).toBe(light.muted);
-    expect(cssVar('--ring', ':root {')).toBe(light.ring);
-  });
-
-  it('dark surfaces match :root[data-theme=dark]', () => {
-    const scope = ":root[data-theme='dark'] {";
-    expect(cssVar('--background', scope)).toBe(dark.background);
-    expect(cssVar('--foreground', scope)).toBe(dark.foreground);
-    expect(cssVar('--muted', scope)).toBe(dark.muted);
-    expect(cssVar('--ring', scope)).toBe(dark.ring);
-  });
-
-  it('the system-preference block matches the explicit dark block', () => {
-    // These are duplicated in theme.css by necessity — a user who has never
-    // touched the theme toggle gets the media-query block, and a user who
-    // chose dark gets the attribute block. If they diverge, toggling the
-    // theme to the value it already had visibly changes the page.
-    const explicit = ":root[data-theme='dark'] {";
-    const system = ":root:not([data-theme='light']) {";
-    for (const prop of ['--background', '--surface', '--foreground', '--muted', '--ring']) {
-      expect(cssVar(prop, system)).toBe(cssVar(prop, explicit));
-    }
-  });
-});
-
-describe('logo mark', () => {
-  it('namespaces its gradient id so two marks on a page do not collide', () => {
-    const a = logoMarkSvg('one');
-    const b = logoMarkSvg('two');
-    expect(a).toContain('id="one-grad"');
-    expect(a).toContain('url(#one-grad)');
-    expect(b).not.toContain('one-grad');
-  });
-
-  it('uses the brand gradient stops', () => {
-    const svg = logoMarkSvg();
-    expect(svg).toContain(brand.iris);
-    expect(svg).toContain(brand.aqua);
-  });
+  }
 });

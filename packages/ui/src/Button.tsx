@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /**
-   * `primary` carries the signature gradient. Use at most one per view — it is
+   * `primary` uses solid oasis with cream text. Use at most one per view — it is
    * the brand's loudest element and stops meaning "the main action" as soon as
    * there are two of them.
    */
@@ -20,7 +20,7 @@ const base =
   'overflow-hidden';
 
 const variants = {
-  primary: 'bg-gradient-brand text-white shadow-glow-iris hover:brightness-110 shine',
+  primary: 'bg-oasis text-cream hover:bg-oasis-deep',
   secondary: 'bg-surface-2 text-foreground hover:bg-surface-3 border border-border-soft',
   ghost: 'text-muted hover:bg-surface-2 hover:text-foreground',
   danger: 'bg-danger text-white hover:brightness-110',

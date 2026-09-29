@@ -21,6 +21,8 @@
    ========================================================================== */
 
 @theme inline {
+  --color-saffron: var(--saffron);
+  --color-danger: var(--danger);
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
@@ -32,9 +34,9 @@
 }
 
 @theme {
-  --radius-xl: 1rem;
-  --radius-2xl: 1.25rem;
-  --radius-3xl: 1.75rem;
+  --radius-xl: 0.625rem;
+  --radius-2xl: 0.875rem;
+  --radius-3xl: 1.25rem;
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
   --animate-typing-dot: typing-dot 1.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 
@@ -97,4 +99,8 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+@utility shadow-lifted {
+  box-shadow: var(--shadow-lifted);
 }

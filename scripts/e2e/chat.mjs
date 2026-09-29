@@ -74,7 +74,7 @@ cfg = await j(`/api/anis/widget/${key}/config`, { headers: { origin: ORIGIN } })
 check(cfg.status === 200, `config served to an allowed origin -> ${cfg.status}`);
 check(cfg.headers.get('access-control-allow-origin') === ORIGIN, 'CORS echoes the allowed origin');
 check(!!cfg.body.greeting?.ar && !!cfg.body.greeting?.en, 'config carries both greetings');
-check(cfg.body.accentColor === '#5a5af0', 'config carries the accent colour');
+check(cfg.body.accentColor === '#0f6b5c', 'config carries the accent colour');
 // The config must never leak the knowledge base or internals.
 for (const leak of ['account', 'allowed_domains', 'widget_key', 'sources']) {
   check(!(leak in cfg.body), `config does not leak "${leak}"`);

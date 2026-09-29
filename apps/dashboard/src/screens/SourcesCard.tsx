@@ -78,7 +78,7 @@ export function SourcesCard({ workspaceId }: { workspaceId: string }) {
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-display text-lg font-semibold">{t('sourcesTitle')}</h2>
+          <h2 className="text-lg font-semibold">{t('sourcesTitle')}</h2>
           <p className="mt-1 max-w-prose text-sm text-muted">{t('sourcesLead')}</p>
         </div>
         {!draft && (
@@ -101,7 +101,7 @@ export function SourcesCard({ workspaceId }: { workspaceId: string }) {
       </div>
 
       {error && (
-        <p role="alert" className="mt-3 text-sm text-danger">
+        <p role="alert" className="mt-3 text-sm text-status-danger">
           {error}
         </p>
       )}
@@ -146,7 +146,7 @@ export function SourcesCard({ workspaceId }: { workspaceId: string }) {
               {s.status === 'failed' && s.error && (
                 // The reason, verbatim, next to the failure. A status with no
                 // explanation leaves the customer with nothing to act on.
-                <p dir="auto" className="w-full text-xs text-danger">
+                <p dir="auto" className="w-full text-xs text-status-danger">
                   {s.error}
                 </p>
               )}
@@ -283,7 +283,7 @@ function SourceForm({
       )}
 
       {error && (
-        <p role="alert" dir="auto" className="text-sm text-danger">
+        <p role="alert" dir="auto" className="text-sm text-status-danger">
           {error}
         </p>
       )}

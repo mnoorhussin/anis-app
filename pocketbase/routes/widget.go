@@ -165,12 +165,12 @@ func publicWidgetConfig(workspace *core.Record) map[string]any {
 
 	return map[string]any{
 		"name":               pick("name", workspace.GetString("name")),
-		"accentColor":        pick("accentColor", "#5a5af0"),
+		"accentColor":        pick("accentColor", "#0f6b5c"),
 		"logoUrl":            pick("logoUrl", nil),
-		"greeting":           pick("greeting", map[string]any{"ar": "مرحباً! كيف أقدر أساعدك؟", "en": "Hi! How can I help?"}),
+		"greeting":           pick("greeting", map[string]any{"ar": "أهلًا بك. كيف يمكنني مساعدتك؟", "en": "Welcome. How can we help?"}),
 		"suggestedQuestions": pick("suggestedQuestions", map[string]any{"ar": []string{}, "en": []string{}}),
 		"badgeOn":            pick("badgeOn", true),
-		"theme":              pick("theme", "auto"),
+		"theme":              pick("theme", "light"),
 		"position":           pick("position", "right"),
 		"language":           pick("language", "auto"),
 	}

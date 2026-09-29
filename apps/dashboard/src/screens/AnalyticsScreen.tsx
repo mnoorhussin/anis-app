@@ -59,7 +59,7 @@ export function AnalyticsScreen() {
     return (
       <Card>
         {error ? (
-          <p role="alert" className="text-sm text-danger">
+          <p role="alert" className="text-sm text-status-danger">
             {error}
           </p>
         ) : (
@@ -116,7 +116,7 @@ export function AnalyticsScreen() {
       </div>
 
       <Card>
-        <h3 className="font-display text-lg font-semibold">{t('howResolved')}</h3>
+        <h3 className="text-lg font-semibold">{t('howResolved')}</h3>
         {/* The breakdown is shown rather than a single percentage because the
             signals are not equal evidence — a thumbs-up is far stronger than a
             conversation simply ending after a good answer, and collapsing them
@@ -139,7 +139,7 @@ export function AnalyticsScreen() {
 
       {Object.keys(summary.languages).length > 0 && (
         <Card>
-          <h3 className="font-display text-lg font-semibold">{t('languagesTitle')}</h3>
+          <h3 className="text-lg font-semibold">{t('languagesTitle')}</h3>
           <ul className="mt-3 flex flex-wrap gap-2">
             {Object.entries(summary.languages).map(([code, n]) => (
               <li key={code}>
@@ -153,7 +153,7 @@ export function AnalyticsScreen() {
       )}
 
       <Card>
-        <h3 className="font-display text-lg font-semibold">{t('gapsTitle')}</h3>
+        <h3 className="text-lg font-semibold">{t('gapsTitle')}</h3>
         <p className="mt-1 max-w-prose text-sm text-muted">{t('gapsHelp')}</p>
         {gaps.length === 0 ? (
           <p className="mt-3 text-sm text-muted">{t('gapsEmpty')}</p>
@@ -215,7 +215,7 @@ function Metric({
         // Figures are Western digits in both languages and never mirrored.
         dir="ltr"
         className={`mt-1 text-start font-display text-2xl font-semibold ${
-          tone === 'success' ? 'text-success' : tone === 'warning' ? 'text-warning' : ''
+          tone === 'success' ? 'text-status-success' : tone === 'warning' ? 'text-status-warning' : ''
         }`}
       >
         {value}
@@ -280,7 +280,7 @@ function GapRow({ gap, onAnswered }: { gap: Gap; onAnswered: () => void }) {
             className="rounded-lg border border-border-soft bg-surface px-3 py-2 text-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
           />
           {error && (
-            <p role="alert" dir="auto" className="text-xs text-danger">
+            <p role="alert" dir="auto" className="text-xs text-status-danger">
               {error}
             </p>
           )}

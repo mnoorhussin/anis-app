@@ -7,32 +7,56 @@
  * be assembled at runtime from tokens + config regardless.
  */
 
-import { themes, type ThemeName } from '@anis/tokens';
+import { brand, shadows, statusForeground, themes, type ThemeName } from '@anis/tokens';
 
-/**
- * Pick black or white text for a given background.
- *
- * Businesses choose their own accent, and a good number of them will choose
- * something pale. Hard-coding white text on the accent means an aqua or yellow
- * brand ships unreadable buttons. Uses the WCAG relative-luminance formula so
- * the choice is the one an accessibility audit would make.
- */
-export function contrastOn(hex: string): '#ffffff' | '#0a0a0f' {
-  const n = parseInt(hex.replace('#', ''), 16);
+/** WCAG 2.x relative luminance for a validated, opaque six-digit hex. */
+export function luminance(hex: string): number {
+  const n = parseInt(hex.slice(1), 16);
   const channel = (c: number) => {
     const s = c / 255;
-    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
   };
-  const luminance =
-    0.2126 * channel((n >> 16) & 255) +
-    0.7152 * channel((n >> 8) & 255) +
-    0.0722 * channel(n & 255);
-  // Contrast against white vs against black; pick whichever is higher.
-  return 1.05 / (luminance + 0.05) >= (luminance + 0.05) / 0.05 ? '#ffffff' : '#0a0a0f';
+  return (
+    0.2126 * channel((n >> 16) & 255) + 0.7152 * channel((n >> 8) & 255) + 0.0722 * channel(n & 255)
+  );
+}
+
+export function contrastRatio(a: string, b: string): number {
+  const x = luminance(a),
+    y = luminance(b);
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+/** Accept only opaque hex colors, never arbitrary CSS in the shadow stylesheet. */
+export function normalizeAccent(value: string): string {
+  if (/^#[0-9a-f]{6}$/i.test(value)) return value.toLowerCase();
+  if (/^#[0-9a-f]{3}$/i.test(value))
+    return (
+      '#' +
+      [...value.slice(1)]
+        .map((c) => c + c)
+        .join('')
+        .toLowerCase()
+    );
+  return brand.oasis;
+}
+
+/** Prefer the brand's cream/ink. Some midtones cannot reach AA with either:
+ * use black/white only for that gap, preserving the customer's chosen fill. */
+export function contrastOn(hex: string): string {
+  const accent = normalizeAccent(hex);
+  const candidates = [brand.cream, brand.ink];
+  candidates.sort((a, b) => contrastRatio(accent, b) - contrastRatio(accent, a));
+  const best = candidates[0]!;
+  if (contrastRatio(accent, best) >= 4.5) return best;
+  return contrastRatio(accent, '#ffffff') >= contrastRatio(accent, '#000000')
+    ? '#ffffff'
+    : '#000000';
 }
 
 export function hostVars(theme: ThemeName, accent: string): string {
   const t = themes[theme];
+  const safeAccent = normalizeAccent(accent);
   return `:host{
   --background:${t.background};
   --surface:${t.surface};
@@ -40,8 +64,11 @@ export function hostVars(theme: ThemeName, accent: string): string {
   --foreground:${t.foreground};
   --muted:${t.muted};
   --border-soft:${t.borderSoft};
-  --accent:${accent};
-  --accent-contrast:${contrastOn(accent)};
+  --accent:${safeAccent};
+  --accent-contrast:${contrastOn(safeAccent)};
+  --saffron:${brand.saffron};
+  --danger:${statusForeground[theme].danger};
+  --shadow-lifted:${shadows[theme].lifted};
   color-scheme:${theme};
 }`;
 }
