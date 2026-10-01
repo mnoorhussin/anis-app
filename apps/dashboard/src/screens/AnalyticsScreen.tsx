@@ -70,7 +70,9 @@ export function AnalyticsScreen() {
   }
 
   const resolvedPct =
-    summary.conversations > 0 ? Math.round((summary.autoResolved / summary.conversations) * 100) : 0;
+    summary.conversations > 0
+      ? Math.round((summary.autoResolved / summary.conversations) * 100)
+      : 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -82,7 +84,9 @@ export function AnalyticsScreen() {
             onClick={() => setDays(d)}
             aria-current={days === d ? 'true' : undefined}
             className={`rounded-lg px-3 py-1 text-sm font-medium transition-colors ${
-              days === d ? 'bg-surface text-foreground shadow-soft' : 'text-muted hover:text-foreground'
+              days === d
+                ? 'bg-surface text-foreground shadow-soft'
+                : 'text-muted hover:text-foreground'
             }`}
           >
             {plural(lang, 'days', d)}
@@ -101,10 +105,7 @@ export function AnalyticsScreen() {
         <Metric label={t('mLeads')} value={formatNumber(summary.leads)} />
         <Metric label={t('mAnswered')} value={formatNumber(summary.answered)} />
         <Metric label={t('mUnanswered')} value={formatNumber(summary.unanswered)} />
-        <Metric
-          label={t('mFirstResponse')}
-          value={formatDuration(summary.firstResponseMedianMs)}
-        />
+        <Metric label={t('mFirstResponse')} value={formatDuration(summary.firstResponseMedianMs)} />
         <Metric
           label={t('mHelpful')}
           value={

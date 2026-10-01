@@ -143,12 +143,12 @@ export function useConversation(
                 .map((m) =>
                   m.id === replyId
                     ? {
-                      ...m,
-                      streaming: false,
-                      outcome: meta.outcome,
-                      refused: meta.offerHandoff,
-                      ...(meta.messageId ? { serverId: meta.messageId } : {}),
-                    }
+                        ...m,
+                        streaming: false,
+                        outcome: meta.outcome,
+                        refused: meta.offerHandoff,
+                        ...(meta.messageId ? { serverId: meta.messageId } : {}),
+                      }
                     : m,
                 ),
             );

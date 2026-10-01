@@ -48,7 +48,8 @@ export const strings = {
     mFirstResponse: 'وسيط زمن أول رد',
     mHelpful: 'مفيدة / غير مفيدة',
     howResolved: 'على أي أساس اعتُبرت مُجابة',
-    howResolvedHelp: 'لا تُحتسب المحادثة مُجابة لمجرد أن الزائر أغلق النافذة. هذه هي الإشارات الفعلية.',
+    howResolvedHelp:
+      'لا تُحتسب المحادثة مُجابة لمجرد أن الزائر أغلق النافذة. هذه هي الإشارات الفعلية.',
     noResolutionsYet: 'لا توجد إشارات بعد. تظهر عندما يقيّم الزوار الإجابات.',
     sigRatedHelpful: 'قيّمها الزائر مفيدة',
     sigUserConfirmed: 'أكّد الزائر',
@@ -62,7 +63,8 @@ export const strings = {
     gapAnswerPlaceholder: 'اكتب الإجابة كما تودّ أن يقولها أنيس…',
     gapSaveToKb: 'أضف إلى المعرفة',
     gapNearMiss: 'قريبة',
-    metricsHonesty: 'نعرض فقط ما نستطيع قياسه فعلياً. لا نُدرج «أهم المواضيع» لأننا لا نحلّلها بعد.',
+    metricsHonesty:
+      'نعرض فقط ما نستطيع قياسه فعلياً. لا نُدرج «أهم المواضيع» لأننا لا نحلّلها بعد.',
     currentPlan: 'باقتك الحالية',
     repliesUsed: 'الردود المستخدمة',
     ofLimit: 'من',
@@ -167,7 +169,8 @@ export const strings = {
     mFirstResponse: 'Median first response',
     mHelpful: 'Helpful / unhelpful',
     howResolved: 'What counted as resolved',
-    howResolvedHelp: 'A conversation is never counted as resolved just because the visitor closed the tab. These are the actual signals.',
+    howResolvedHelp:
+      'A conversation is never counted as resolved just because the visitor closed the tab. These are the actual signals.',
     noResolutionsYet: 'No signals yet. They appear once visitors rate answers.',
     sigRatedHelpful: 'Visitor said it helped',
     sigUserConfirmed: 'Visitor confirmed',
@@ -175,13 +178,15 @@ export const strings = {
     sigEndedAnswered: 'Ended after an answer',
     languagesTitle: 'Languages',
     gapsTitle: 'Unanswered questions',
-    gapsHelp: 'Questions your sources could not answer. Add an answer and it becomes part of the knowledge base straight away.',
+    gapsHelp:
+      'Questions your sources could not answer. Add an answer and it becomes part of the knowledge base straight away.',
     gapsEmpty: 'No unanswered questions.',
     gapAnswer: 'Add an answer',
     gapAnswerPlaceholder: 'Write the answer as you would want Anis to say it…',
     gapSaveToKb: 'Add to knowledge',
     gapNearMiss: 'Near miss',
-    metricsHonesty: 'Only figures we can actually measure are shown. Top topics is absent because we do not cluster them yet.',
+    metricsHonesty:
+      'Only figures we can actually measure are shown. Top topics is absent because we do not cluster them yet.',
     currentPlan: 'Your plan',
     repliesUsed: 'AI replies used',
     ofLimit: 'of',
