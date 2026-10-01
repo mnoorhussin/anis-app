@@ -20,7 +20,7 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md,yml,yaml}\"",
     "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test",
     "pb:types": "pnpm --filter @anis/types run generate",
-    "test:e2e": "node scripts/e2e/signup.mjs && node scripts/e2e/sources.mjs && node scripts/e2e/chat.mjs && node scripts/e2e/escalate.mjs && node scripts/e2e/stream.mjs && node scripts/e2e/billing.mjs"
+    "test:e2e": "node scripts/e2e/signup.mjs && node scripts/e2e/sources.mjs && node scripts/e2e/chat.mjs && node scripts/e2e/escalate.mjs && node scripts/e2e/stream.mjs && node scripts/e2e/billing.mjs && node scripts/e2e/workspaces.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",

@@ -33,7 +33,7 @@ interface Gap {
 
 const WINDOWS = [7, 30, 90] as const;
 
-export function AnalyticsScreen() {
+export function AnalyticsScreen({ workspaceId }: { workspaceId?: string }) {
   const { t, lang } = useLanguage();
   const [days, setDays] = useState<number>(30);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -41,17 +41,26 @@ export function AnalyticsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    pb.send(`/api/anis/analytics?days=${days}`, { method: 'GET' })
+    // The analytics route and the knowledge-gap list are both per-workspace. An
+    // account with several workspaces must look at one at a time, or an agency
+    // would see every client's numbers summed into a meaningless total. When no
+    // workspace is given the backend falls back to the caller's own.
+    const wq = workspaceId ? `&workspace=${encodeURIComponent(workspaceId)}` : '';
+    pb.send(`/api/anis/analytics?days=${days}${wq}`, { method: 'GET' })
       .then((s) => setSummary(s as Summary))
       .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
 
     // Ordered by frequency: the question asked forty times is worth more than
-    // forty questions asked once.
+    // forty questions asked once. Filter params are bound, not interpolated, so
+    // a workspace id can never smuggle filter syntax.
+    const filter = workspaceId
+      ? pb.filter('answered = false && workspace = {:w}', { w: workspaceId })
+      : 'answered = false';
     pb.collection('knowledge_gaps')
-      .getFullList<Gap>({ filter: 'answered = false', sort: '-count' })
+      .getFullList<Gap>({ filter, sort: '-count' })
       .then(setGaps)
       .catch(() => setGaps([]));
-  }, [days]);
+  }, [days, workspaceId]);
 
   useEffect(load, [load]);
 
