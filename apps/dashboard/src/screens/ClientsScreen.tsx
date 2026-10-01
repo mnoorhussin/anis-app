@@ -117,7 +117,7 @@ export function ClientsScreen({
             aria-valuemax={100}
           >
             <div
-              className={`h-full rounded-full ${usedPct >= 100 ? 'bg-danger' : 'bg-iris'}`}
+              className={`h-full rounded-full ${usedPct >= 100 ? 'bg-danger' : 'bg-accent'}`}
               style={{ width: `${usedPct}%` }}
             />
           </div>
