@@ -188,7 +188,7 @@ export function WorkspaceScreen() {
 
       {error && (
         <Card>
-          <p role="alert" className="text-sm text-danger">
+          <p role="alert" className="text-sm text-status-danger">
             {error}
           </p>
         </Card>
@@ -238,13 +238,13 @@ export function WorkspaceScreen() {
           <SourcesCard workspaceId={workspace.id} />
 
           <Card>
-            <h2 className="font-display text-lg font-semibold">{t('installTitle')}</h2>
+            <h2 className="text-lg font-semibold">{t('installTitle')}</h2>
             <p className="mt-1 text-sm text-muted">{t('installLead')}</p>
             <InstallSnippet widgetKey={workspace.widget_key} />
           </Card>
 
           <Card>
-            <h2 className="font-display text-lg font-semibold">{t('domainsTitle')}</h2>
+            <h2 className="text-lg font-semibold">{t('domainsTitle')}</h2>
             {domains.length === 0 ? (
               // Not an error state — it is the safe default, and saying so
               // plainly is better than an empty box the owner has to

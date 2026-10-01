@@ -150,7 +150,7 @@ export function InboxScreen({ workspaceId, plan }: { workspaceId: string; plan: 
     <div className="grid gap-4 md:grid-cols-[18rem_1fr]">
       <Card className="max-h-[32rem] overflow-y-auto">
         {error && (
-          <p role="alert" className="mb-2 text-sm text-danger">
+          <p role="alert" className="mb-2 text-sm text-status-danger">
             {error}
           </p>
         )}
@@ -170,7 +170,7 @@ export function InboxScreen({ workspaceId, plan }: { workspaceId: string; plan: 
                   <span className="flex w-full items-center gap-2">
                     <Badge tone={STATUS_TONE[c.status]}>{t(STATUS_LABEL[c.status])}</Badge>
                     {NEEDS_ATTENTION.includes(c.status) && (
-                      <span className="ms-auto text-[11px] font-medium text-warning">
+                      <span className="ms-auto text-[11px] font-medium text-status-warning">
                         {t('needsAttention')}
                       </span>
                     )}
@@ -304,7 +304,7 @@ function ConversationPane({
               m.role === 'user'
                 ? 'self-start bg-surface-2 text-foreground'
                 : m.role === 'human'
-                  ? 'self-end bg-iris/12 text-foreground'
+                  ? 'self-end bg-accent/12 text-foreground'
                   : 'self-end bg-surface-3 text-foreground'
             }`}
           >
