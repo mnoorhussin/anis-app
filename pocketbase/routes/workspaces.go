@@ -93,9 +93,40 @@ type accountSummary struct {
 	ClientWorkspaces bool   `json:"client_workspaces"` // agency management UX is sold on this plan
 }
 
+// sharedWorkspace is a workspace the caller was invited into, under someone
+// else's account. Listed without usage or billing figures: those belong to that
+// account's owner, not to a client or agent who works in one of its workspaces.
+type sharedWorkspace struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Role        string `json:"role"`
+	AccountName string `json:"account_name"`
+}
+
 type overviewResponse struct {
-	Account    accountSummary   `json:"account"`
-	Workspaces []workspaceStats `json:"workspaces"`
+	Account    accountSummary    `json:"account"`
+	Workspaces []workspaceStats  `json:"workspaces"`
+	Shared     []sharedWorkspace `json:"shared"`
+}
+
+// sharedWorkspaces picks out the caller's memberships in workspaces that do not
+// belong to the account they own.
+func sharedWorkspaces(app core.App, memberships []*core.Record, ownedAccountID string) []sharedWorkspace {
+	out := []sharedWorkspace{}
+	for _, m := range memberships {
+		ws, err := app.FindRecordById("workspaces", m.GetString("workspace"))
+		if err != nil || ws.GetString("account") == ownedAccountID {
+			continue
+		}
+		accountName := ""
+		if acct, err := app.FindRecordById("accounts", ws.GetString("account")); err == nil {
+			accountName = acct.GetString("name")
+		}
+		out = append(out, sharedWorkspace{
+			ID: ws.Id, Name: ws.GetString("name"), Role: m.GetString("role"), AccountName: accountName,
+		})
+	}
+	return out
 }
 
 // handleListWorkspaces returns every workspace under the caller's account, each
@@ -106,11 +137,27 @@ func handleListWorkspaces(e *core.RequestEvent) error {
 		return e.UnauthorizedError("sign in required", nil)
 	}
 
+	// One membership query, mapped workspace -> role, rather than one query per
+	// workspace. The owner has a membership on every workspace they created.
+	roles := map[string]string{}
+	memberships, err := e.App.FindRecordsByFilter(
+		"memberships", "user = {:u}", "created", 0, 0, map[string]any{"u": e.Auth.Id},
+	)
+	if err != nil {
+		memberships = nil
+	}
+	for _, m := range memberships {
+		roles[m.GetString("workspace")] = m.GetString("role")
+	}
+
 	account, err := ownedAccount(e.App, e.Auth.Id)
 	if err != nil {
 		// Not an owner of any account. Report an empty roster rather than an
-		// error: the dashboard shows "no workspaces you manage", not a failure.
-		return e.JSON(http.StatusOK, overviewResponse{Workspaces: []workspaceStats{}})
+		// error, along with anything they were invited into.
+		return e.JSON(http.StatusOK, overviewResponse{
+			Workspaces: []workspaceStats{},
+			Shared:     sharedWorkspaces(e.App, memberships, ""),
+		})
 	}
 
 	plan := account.GetString("plan")
@@ -122,18 +169,6 @@ func handleListWorkspaces(e *core.RequestEvent) error {
 	)
 	if err != nil {
 		return e.InternalServerError("could not load workspaces", err)
-	}
-
-	// One membership query, mapped workspace -> role, rather than one query per
-	// workspace. The owner has a membership on every workspace they created.
-	roles := map[string]string{}
-	memberships, err := e.App.FindRecordsByFilter(
-		"memberships", "user = {:u}", "", 0, 0, map[string]any{"u": e.Auth.Id},
-	)
-	if err == nil {
-		for _, m := range memberships {
-			roles[m.GetString("workspace")] = m.GetString("role")
-		}
 	}
 
 	since := monthStartUTC()
@@ -168,6 +203,7 @@ func handleListWorkspaces(e *core.RequestEvent) error {
 			ClientWorkspaces: plans.HasFeature(plan, "clientWorkspaces"),
 		},
 		Workspaces: out,
+		Shared:     sharedWorkspaces(e.App, memberships, account.Id),
 	})
 }
 

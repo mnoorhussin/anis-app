@@ -21,13 +21,31 @@ read first by anyone (or any session) picking this up cold.
 | Stripe: checkout, webhooks, portal, billing screen         | Done — webhook path verified, API calls not                   |
 | Ratings, analytics view, knowledge-gap queue               | Done — a thumbs-up is the only resolution signal today        |
 | Agency: list, create, delete client workspaces; usage each | Done — ceiling, tenancy, cascade verified in `workspaces.mjs` |
+| Team invitations; owner / admin / agent roles; seats       | Done — every role boundary verified in `invitations.mjs`      |
 
 Not started: WhatsApp/Messenger, advanced actions, instant-demo generator.
 
 Agency is partially built. Listing the account's workspaces, creating another
 under the plan's ceiling (Pro's extra assistants, an agency's clients),
-deleting one, the dashboard switcher and the Clients overview all work. Still
-to build: client invitations, workspace duplication, and branded reports.
+deleting one, inviting clients and colleagues, the dashboard switcher and the
+Clients overview all work. Still to build: workspace duplication and branded
+reports.
+
+Invitations made roles real, so they came with role enforcement. Owners and
+admins manage a workspace's knowledge and settings; agents work the inbox and
+see analytics. Before this, every member was an owner, and the rules said "any
+member may…" — including change a workspace's `account`, which an invited agent
+could have used to move their own workspace onto an agency's plan and bill. No
+one can change `account` or `widget_key` through the API now.
+`TestRoleRulesBindToTheCallersMembership` pins the PocketBase behaviour the role
+rules depend on; if an upgrade breaks it, that test fails rather than every
+agent silently gaining owner powers.
+
+Two things about invitations worth knowing. Every signup still provisions its
+own account and workspace, so an invited agent also has an empty personal
+workspace (the dashboard remembers the last workspace opened, so they are not
+dropped into it each time). And the invitation email goes through PocketBase's
+mailer, which is not configured anywhere yet — see below.
 
 Deleting a workspace removes its children by cascade and its vectors through
 the `workspaces` delete hook; both are tested, including inside the route's
@@ -74,6 +92,12 @@ set — not building the next feature.
   been rehearsed.
 - **Backups need two mechanisms.** Litestream covers SQLite only; uploaded
   files need PocketBase's own backup. Neither alone is sufficient.
+- **No email has ever been sent.** Invitations and escalation notices both use
+  PocketBase's mailer, and no SMTP server or sender address is configured or
+  tested. Both fail soft: an invitation shows the inviter a link to copy, and an
+  escalation still lands in the inbox. Configure SMTP (PocketBase settings →
+  Mail) and send one of each before relying on either. `ANIS_APP_URL` must also
+  be set, or invitation links point at the default `https://app.anis.chat`.
 
 ## Traps that will cost hours if rediscovered
 

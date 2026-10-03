@@ -78,6 +78,15 @@ func Register(e *core.ServeEvent, deps Deps) error {
 	authed.POST("/workspaces", handleCreateWorkspace)
 	authed.DELETE("/workspaces/{id}", handleDeleteWorkspace)
 
+	// Team: members, invitations and seats. Memberships and invitations have
+	// no write rules at all, so these routes are the only way in or out of a
+	// workspace — role and seat limits are enforced here and nowhere else.
+	authed.GET("/workspaces/{id}/team", handleTeam)
+	authed.POST("/workspaces/{id}/invitations", handleInvite)
+	authed.DELETE("/workspaces/{id}/members/{user}", handleRemoveMember)
+	authed.DELETE("/invitations/{id}", handleRevokeInvitation)
+	authed.POST("/invitations/accept", handleAcceptInvitation)
+
 	// --- Widget: called from arbitrary third-party domains -----------------
 	//
 	// The only genuinely public endpoints. They authenticate with a widget key
@@ -97,6 +106,11 @@ func Register(e *core.ServeEvent, deps Deps) error {
 	g.OPTIONS("/widget/{key}/escalate", handleWidgetPreflight)
 	g.OPTIONS("/widget/{key}/rate", handleWidgetPreflight)
 	g.OPTIONS("/widget/{key}/stream", handleWidgetPreflight)
+
+	// What an invitation link is for, shown before the invitee has signed in —
+	// they may not have an account yet. The token is a 256-bit secret, so this
+	// cannot be used to discover invitations.
+	g.GET("/invitations/preview/{token}", handleInvitationPreview)
 
 	// --- Billing -----------------------------------------------------------
 	//

@@ -67,3 +67,57 @@ func TestIsWidgetKeyRejectsJunk(t *testing.T) {
 		}
 	}
 }
+
+func TestInviteTokenShapeAndUniqueness(t *testing.T) {
+	seen := make(map[string]bool, 500)
+	for range 500 {
+		tok := NewInviteToken()
+		if !IsInviteToken(tok) {
+			t.Fatalf("generated token does not validate: %q", tok)
+		}
+		// 32 bytes in base32 without padding.
+		if want := len(InviteTokenPrefix) + 52; len(tok) != want {
+			t.Fatalf("length = %d, want %d (%q)", len(tok), want, tok)
+		}
+		if seen[tok] {
+			t.Fatalf("duplicate token generated: %q", tok)
+		}
+		seen[tok] = true
+	}
+}
+
+func TestIsInviteTokenRejectsJunk(t *testing.T) {
+	valid := NewInviteToken()
+	cases := []struct {
+		in   string
+		want bool
+		why  string
+	}{
+		{valid, true, "freshly generated"},
+		{"", false, "empty"},
+		{"inv_", false, "prefix only"},
+		// A widget key must never be accepted where an invitation is expected.
+		{NewWidgetKey(), false, "a widget key"},
+		{valid[:len(valid)-1], false, "too short"},
+		{valid + "A", false, "too long"},
+		{"inv_' OR 1=1 --", false, "injection attempt"},
+	}
+	for _, c := range cases {
+		if got := IsInviteToken(c.in); got != c.want {
+			t.Errorf("IsInviteToken(%q) = %v, want %v (%s)", c.in, got, c.want, c.why)
+		}
+	}
+}
+
+func TestHashInviteToken(t *testing.T) {
+	a, b := NewInviteToken(), NewInviteToken()
+	if HashInviteToken(a) != HashInviteToken(a) {
+		t.Error("hashing is not deterministic, so a stored hash could never be found again")
+	}
+	if HashInviteToken(a) == HashInviteToken(b) {
+		t.Error("two tokens share a hash")
+	}
+	if h := HashInviteToken(a); len(h) != 64 || strings.Contains(h, a) {
+		t.Errorf("unexpected hash %q", h)
+	}
+}

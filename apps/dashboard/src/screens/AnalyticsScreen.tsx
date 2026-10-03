@@ -33,7 +33,15 @@ interface Gap {
 
 const WINDOWS = [7, 30, 90] as const;
 
-export function AnalyticsScreen({ workspaceId }: { workspaceId?: string }) {
+export function AnalyticsScreen({
+  workspaceId,
+  canAnswerGaps = true,
+}: {
+  workspaceId?: string;
+  // False for agents: answering a gap adds knowledge, which the backend
+  // reserves for owners and admins. They still see the queue.
+  canAnswerGaps?: boolean;
+}) {
   const { t, lang } = useLanguage();
   const [days, setDays] = useState<number>(30);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -170,7 +178,7 @@ export function AnalyticsScreen({ workspaceId }: { workspaceId?: string }) {
         ) : (
           <ul className="mt-4 flex flex-col gap-3">
             {gaps.map((g) => (
-              <GapRow key={g.id} gap={g} onAnswered={load} />
+              <GapRow key={g.id} gap={g} onAnswered={load} canAnswer={canAnswerGaps} />
             ))}
           </ul>
         )}
@@ -238,7 +246,15 @@ function Metric({
   );
 }
 
-function GapRow({ gap, onAnswered }: { gap: Gap; onAnswered: () => void }) {
+function GapRow({
+  gap,
+  onAnswered,
+  canAnswer,
+}: {
+  gap: Gap;
+  onAnswered: () => void;
+  canAnswer: boolean;
+}) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [answer, setAnswer] = useState('');
@@ -276,7 +292,7 @@ function GapRow({ gap, onAnswered }: { gap: Gap; onAnswered: () => void }) {
         </span>
         <Badge tone={gap.count > 1 ? 'warning' : 'neutral'}>×{gap.count}</Badge>
         {nearMiss && <Badge tone="info">{t('gapNearMiss')}</Badge>}
-        {!open && (
+        {!open && canAnswer && (
           <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
             {t('gapAnswer')}
           </Button>

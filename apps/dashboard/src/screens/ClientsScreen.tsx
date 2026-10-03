@@ -27,9 +27,18 @@ export interface AccountSummary {
   client_workspaces: boolean;
 }
 
+/** A workspace the caller was invited into, under someone else's account. */
+export interface SharedWorkspace {
+  id: string;
+  name: string;
+  role: string;
+  account_name: string;
+}
+
 export interface Roster {
   account: AccountSummary;
   workspaces: WorkspaceStat[];
+  shared: SharedWorkspace[];
 }
 
 const roleTone: Record<string, 'brand' | 'neutral'> = { owner: 'brand' };

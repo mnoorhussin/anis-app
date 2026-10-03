@@ -4,7 +4,9 @@ package keys
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base32"
+	"encoding/hex"
 	"strings"
 )
 
@@ -57,4 +59,50 @@ func IsWidgetKey(s string) bool {
 	}
 	_, err := encoding.DecodeString(body)
 	return err == nil
+}
+
+// InviteTokenPrefix marks an invitation link's token.
+const InviteTokenPrefix = "inv_"
+
+// inviteTokenBytes is the entropy behind an invitation token.
+//
+// Twice the widget key's, because the two are opposite kinds of secret. A
+// widget key is public and only identifies; an invite token is a bearer
+// credential — whoever holds it can join a workspace (as the invited email). It
+// must stay unguessable for its whole lifetime, and only its hash is stored.
+const inviteTokenBytes = 32
+
+// NewInviteToken returns a fresh invitation token. Panics if the CSPRNG fails,
+// for the same reason as NewWidgetKey.
+func NewInviteToken() string {
+	b := make([]byte, inviteTokenBytes)
+	if _, err := rand.Read(b); err != nil {
+		panic("keys: crypto/rand unavailable: " + err.Error())
+	}
+	return InviteTokenPrefix + encoding.EncodeToString(b)
+}
+
+// IsInviteToken reports whether s has the shape of an invitation token. A shape
+// check only, so junk is rejected before it reaches the database.
+func IsInviteToken(s string) bool {
+	if !strings.HasPrefix(s, InviteTokenPrefix) {
+		return false
+	}
+	body := s[len(InviteTokenPrefix):]
+	if len(body) != encoding.EncodedLen(inviteTokenBytes) {
+		return false
+	}
+	_, err := encoding.DecodeString(body)
+	return err == nil
+}
+
+// HashInviteToken is what the database stores in place of the token.
+//
+// A plain SHA-256 rather than a password hash is correct here: the input is 256
+// random bits, not something a person chose, so there is nothing for a slow
+// hash to protect against. What hashing buys is that a leaked database, backup
+// or log line does not contain a working link.
+func HashInviteToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }

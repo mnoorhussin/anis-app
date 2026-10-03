@@ -158,7 +158,8 @@ export const PLANS: Record<PlanId, Plan> = {
       aiRepliesPerMonth: 1_000,
       workspaces: 1,
       websites: 1,
-      members: 2,
+      // Just the owner: inviting people starts at Growth (`multipleMembers`).
+      members: 1,
       sourcesPerWorkspace: 50,
       chunksPerWorkspace: 10_000,
       pagesPerCrawl: 100,

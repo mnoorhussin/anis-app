@@ -37,7 +37,18 @@ const STATUS_TONE = {
 
 type Draft = { kind: 'text' | 'faq' | 'website' } | null;
 
-export function SourcesCard({ workspaceId }: { workspaceId: string }) {
+/**
+ * `canManage` is false for agents: they see what the assistant knows — which is
+ * what makes a wrong answer explainable to them — but adding, refreshing and
+ * deleting knowledge is an owner's or admin's call, and the backend refuses it.
+ */
+export function SourcesCard({
+  workspaceId,
+  canManage = true,
+}: {
+  workspaceId: string;
+  canManage?: boolean;
+}) {
   const { t, lang } = useLanguage();
   const [sources, setSources] = useState<Source[]>([]);
   const [draft, setDraft] = useState<Draft>(null);
@@ -87,7 +98,7 @@ export function SourcesCard({ workspaceId }: { workspaceId: string }) {
           <h2 className="text-lg font-semibold">{t('sourcesTitle')}</h2>
           <p className="mt-1 max-w-prose text-sm text-muted">{t('sourcesLead')}</p>
         </div>
-        {!draft && (
+        {!draft && canManage && (
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" onClick={() => setDraft({ kind: 'text' })}>
               {t('addText')}
@@ -141,14 +152,16 @@ export function SourcesCard({ workspaceId }: { workspaceId: string }) {
                 <span className="text-xs text-muted">{plural(lang, 'passages', s.pages)}</span>
               )}
               <Badge tone={STATUS_TONE[s.status]}>{t(STATUS_LABEL[s.status])}</Badge>
-              {s.type === 'website' && (
+              {canManage && s.type === 'website' && (
                 <Button size="sm" variant="ghost" onClick={() => refresh(s.id)}>
                   {t('refresh')}
                 </Button>
               )}
-              <Button size="sm" variant="ghost" onClick={() => remove(s.id)}>
-                {t('delete')}
-              </Button>
+              {canManage && (
+                <Button size="sm" variant="ghost" onClick={() => remove(s.id)}>
+                  {t('delete')}
+                </Button>
+              )}
               {s.status === 'failed' && s.error && (
                 // The reason, verbatim, next to the failure. A status with no
                 // explanation leaves the customer with nothing to act on.

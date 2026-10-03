@@ -1,6 +1,8 @@
 import { Button, Card, Logo } from '@anis/ui';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 
+import { inviteLine } from '../i18n.js';
+import { type PendingInvite } from '../lib/invite.js';
 import { useLanguage } from '../lib/LanguageContext.js';
 import { pb } from '../lib/pocketbase.js';
 
@@ -9,7 +11,7 @@ type Mode = 'signin' | 'signup';
 /** PocketBase's minimum. Stated up front rather than after a failed submit. */
 const MIN_PASSWORD = 8;
 
-export function AuthScreen() {
+export function AuthScreen({ invite }: { invite?: PendingInvite | null }) {
   const { t, lang, setLang } = useLanguage();
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
@@ -18,6 +20,16 @@ export function AuthScreen() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Arriving from an invitation: the account must use the invited address, so
+  // fill it in, and start on sign-up — most people invited to a client's
+  // workspace do not have an account yet. Only if they have not typed one.
+  const invitedEmail = invite?.preview?.email;
+  useEffect(() => {
+    if (!invitedEmail) return;
+    setEmail((current) => current || invitedEmail);
+    setMode('signup');
+  }, [invitedEmail]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -65,6 +77,34 @@ export function AuthScreen() {
           {lang === 'ar' ? 'English' : 'العربية'}
         </Button>
       </div>
+
+      {invite && (
+        <Card className="ring-1 ring-accent/30">
+          <h2 className="text-lg font-semibold">{t('inviteTitle')}</h2>
+          {invite.preview ? (
+            <>
+              <p dir="auto" className="mt-1 text-sm">
+                {inviteLine(
+                  lang,
+                  invite.preview.inviter,
+                  invite.preview.workspace_name,
+                  invite.preview.role,
+                )}
+              </p>
+              <p className="mt-2 text-sm text-muted">
+                {t('inviteUseEmail')}{' '}
+                <bdi dir="ltr" className="font-semibold text-foreground">
+                  {invite.preview.email}
+                </bdi>
+              </p>
+            </>
+          ) : (
+            <p className="mt-1 text-sm text-muted">
+              {invite.problem === 'expired' ? t('inviteExpired') : t('inviteInvalid')}
+            </p>
+          )}
+        </Card>
+      )}
 
       <Card>
         <h1 className="font-display text-2xl font-semibold">

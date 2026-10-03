@@ -43,17 +43,18 @@ Each script is self-contained — it creates its own users and workspaces with a
 timestamped email — so they can run in any order against the same database, and
 re-running them does not require a reset.
 
-| Script           | Covers                                                                                              |
-| ---------------- | --------------------------------------------------------------------------------------------------- |
-| `signup.mjs`     | Signup provisioning, Arabic names round-tripping, tenant isolation                                  |
-| `sources.mjs`    | Text and FAQ ingestion, refusal of unbuilt source types, vector cleanup on delete                   |
-| `crawl.mjs`      | Website crawling, robots.txt, boilerplate stripping, refresh replacing rather than duplicating      |
-| `chat.mjs`       | Origin allow-list, refusals verbatim in both languages, SSE framing, metering only answered replies |
-| `escalate.mjs`   | Lead capture, the assistant going silent under human control, message-role forgery refused          |
-| `stream.mjs`     | History replay, agent replies reaching the visitor, four authorisation refusals                     |
-| `billing.mjs`    | Webhook signatures, idempotent replays, `past_due` keeping the plan, owner-scoped writes            |
-| `analytics.mjs`  | Ratings resolving (or not) a conversation, the summary's figures, answering a knowledge gap         |
-| `workspaces.mjs` | The plan ceiling on workspaces, creating and deleting a client workspace, cascade, tenancy          |
+| Script            | Covers                                                                                              |
+| ----------------- | --------------------------------------------------------------------------------------------------- |
+| `signup.mjs`      | Signup provisioning, Arabic names round-tripping, tenant isolation                                  |
+| `sources.mjs`     | Text and FAQ ingestion, refusal of unbuilt source types, vector cleanup on delete                   |
+| `crawl.mjs`       | Website crawling, robots.txt, boilerplate stripping, refresh replacing rather than duplicating      |
+| `chat.mjs`        | Origin allow-list, refusals verbatim in both languages, SSE framing, metering only answered replies |
+| `escalate.mjs`    | Lead capture, the assistant going silent under human control, message-role forgery refused          |
+| `stream.mjs`      | History replay, agent replies reaching the visitor, four authorisation refusals                     |
+| `billing.mjs`     | Webhook signatures, idempotent replays, `past_due` keeping the plan, owner-scoped writes            |
+| `analytics.mjs`   | Ratings resolving (or not) a conversation, the summary's figures, answering a knowledge gap         |
+| `workspaces.mjs`  | The plan ceiling on workspaces, creating and deleting a client workspace, cascade, tenancy          |
+| `invitations.mjs` | Invite links bound to one email and one use, seats, expiry, what each role can and cannot do        |
 
 `crawl.mjs` starts its own fake customer site on a random port, which is why
 the backend needs `ANIS_ALLOW_PRIVATE_CRAWL=1` — the SSRF guard would otherwise

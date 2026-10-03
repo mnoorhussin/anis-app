@@ -47,7 +47,8 @@ var catalogue = map[ID]Limits{
 		SourcesPerWorkspace: 5, ChunksPerWorkspace: 500, PagesPerCrawl: 20, RetentionDays: 30,
 	},
 	Starter: {
-		AIRepliesPerMonth: 1000, Workspaces: 1, Websites: 1, Members: 2,
+		// Members 1: just the owner. Inviting people starts at Growth.
+		AIRepliesPerMonth: 1000, Workspaces: 1, Websites: 1, Members: 1,
 		SourcesPerWorkspace: 50, ChunksPerWorkspace: 10000, PagesPerCrawl: 100, RetentionDays: 90,
 	},
 	Growth: {

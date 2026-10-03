@@ -3,15 +3,42 @@ import { Badge, Button, Card, Logo } from '@anis/ui';
 import { Fragment, useCallback, useEffect, useState } from 'react';
 
 import { formatNumber, type StringKey } from '../i18n.js';
+import { describeError } from '../lib/apiError.js';
+import { type PendingInvite } from '../lib/invite.js';
 import { useLanguage } from '../lib/LanguageContext.js';
 import { pb } from '../lib/pocketbase.js';
+import { isManager } from '../lib/roles.js';
 import { useSignOut } from '../lib/useAuth.js';
+import { AcceptInviteCard } from './AcceptInviteCard.js';
 import { AnalyticsScreen } from './AnalyticsScreen.js';
 import { BillingScreen } from './BillingScreen.js';
 import { ClientsScreen, type Roster } from './ClientsScreen.js';
 import { DeleteWorkspaceCard } from './DeleteWorkspaceCard.js';
 import { InboxScreen } from './InboxScreen.js';
 import { SourcesCard } from './SourcesCard.js';
+import { TeamCard } from './TeamCard.js';
+
+/**
+ * The last workspace opened, per browser. Without it everyone lands on a
+ * workspace they own — and every signup provisions one, so a client or agent
+ * invited into an agency's workspace would open their own empty one each time.
+ * A convenience only: if it is missing or stale the default applies.
+ */
+const ACTIVE_KEY = 'anis.activeWorkspace';
+function storedActive(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_KEY);
+  } catch {
+    return null;
+  }
+}
+function storeActive(id: string): void {
+  try {
+    localStorage.setItem(ACTIVE_KEY, id);
+  } catch {
+    // Blocked storage: the default selection still works.
+  }
+}
 
 interface Workspace {
   id: string;
@@ -33,7 +60,13 @@ const tabLabel: Record<Tab, StringKey> = {
   billing: 'tabBilling',
 };
 
-export function WorkspaceScreen() {
+export function WorkspaceScreen({
+  invite,
+  onInviteDone,
+}: {
+  invite: PendingInvite | null;
+  onInviteDone: () => void;
+}) {
   const { t, lang, setLang } = useLanguage();
   const signOut = useSignOut();
 
@@ -53,15 +86,25 @@ export function WorkspaceScreen() {
   const loadRoster = useCallback(async (): Promise<Roster | null> => {
     try {
       const r = (await pb.send('/api/anis/workspaces', { method: 'GET' })) as Roster;
+      r.shared ??= [];
       setRoster(r);
+      const reachable = (id: string | null) =>
+        !!id && (r.workspaces.some((w) => w.id === id) || r.shared.some((w) => w.id === id));
       setActiveId((prev) => {
-        if (prev && r.workspaces.some((w) => w.id === prev)) return prev;
-        // Prefer a workspace the caller owns; fall back to the first.
-        return r.workspaces.find((w) => w.role === 'owner')?.id ?? r.workspaces[0]?.id ?? null;
+        if (reachable(prev)) return prev;
+        const remembered = storedActive();
+        if (reachable(remembered)) return remembered;
+        // Prefer a workspace the caller owns; then one shared with them.
+        return (
+          r.workspaces.find((w) => w.role === 'owner')?.id ??
+          r.workspaces[0]?.id ??
+          r.shared[0]?.id ??
+          null
+        );
       });
       return r;
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(describeError(err));
       return null;
     }
   }, []);
@@ -69,6 +112,10 @@ export function WorkspaceScreen() {
   useEffect(() => {
     void loadRoster();
   }, [loadRoster]);
+
+  useEffect(() => {
+    if (activeId) storeActive(activeId);
+  }, [activeId]);
 
   // Load the full record for the active workspace. The roster endpoint carries
   // only what the list needs; the detail tab needs the widget key, the domain
@@ -107,7 +154,7 @@ export function WorkspaceScreen() {
         setActiveId(created.id);
         return true;
       } catch (err) {
-        setCreateError(describe(err));
+        setCreateError(describeError(err));
         return false;
       } finally {
         setCreating(false);
@@ -131,7 +178,7 @@ export function WorkspaceScreen() {
         setTab((r?.account.max_workspaces ?? 1) > 1 ? 'clients' : 'workspace');
         return true;
       } catch (err) {
-        setDeleteError(describe(err));
+        setDeleteError(describeError(err));
         return false;
       } finally {
         setDeleting(false);
@@ -140,13 +187,56 @@ export function WorkspaceScreen() {
     [loadRoster],
   );
 
-  // Plan comes from the account (the single source of truth for entitlements),
-  // falling back to the active workspace's expanded account, then free.
+  // Accepting an invitation lands the person in the workspace they joined.
+  const acceptedInvite = useCallback(
+    async (workspaceId: string) => {
+      await loadRoster();
+      setActiveId(workspaceId);
+      setTab('workspace');
+      onInviteDone();
+    },
+    [loadRoster, onInviteDone],
+  );
+
+  // Leaving a workspace someone else owns. The selection then falls back to
+  // another workspace, as it does after a delete.
+  const [leaveError, setLeaveError] = useState<string | null>(null);
+  const leave = useCallback(
+    async (workspaceId: string) => {
+      const me = pb.authStore.record?.id;
+      if (!me) return;
+      setLeaveError(null);
+      try {
+        await pb.send(
+          `/api/anis/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(me)}`,
+          { method: 'DELETE' },
+        );
+        await loadRoster();
+        setTab('workspace');
+      } catch (err) {
+        setLeaveError(describeError(err));
+      }
+    },
+    [loadRoster],
+  );
+
+  // Plan comes from the ACTIVE workspace's account, because that is the plan
+  // whose features apply here. Preferring the caller's own account would be
+  // wrong for a workspace they were invited into: an agency's agent, whose own
+  // account is free, would see the agency's inbox without human takeover.
+  // The roster's account plan is the fallback while the record loads.
   const plan: PlanId =
-    (roster?.account.plan as PlanId) ?? workspace?.expand?.account?.plan ?? 'free';
+    workspace?.expand?.account?.plan ?? (roster?.account.plan as PlanId | undefined) ?? 'free';
   const domains = workspace?.allowed_domains ?? [];
   const multi = (roster?.account.max_workspaces ?? 1) > 1;
-  const switchable = (roster?.workspaces.length ?? 0) > 1;
+  const shared = roster?.shared ?? [];
+  const switchable = (roster?.workspaces.length ?? 0) + shared.length > 1;
+  // The caller's role here decides which controls are offered. The backend
+  // enforces the same rules; this only avoids showing buttons it would refuse.
+  const activeRole =
+    roster?.workspaces.find((w) => w.id === activeId)?.role ??
+    shared.find((w) => w.id === activeId)?.role;
+  const canManage = isManager(activeRole);
   // Mirrors the server's guard: only an owner may delete, and never the last
   // workspace they own. Hiding the card in those cases spares a 409 the owner
   // could do nothing about; the backend still enforces it either way.
@@ -172,11 +262,30 @@ export function WorkspaceScreen() {
                 className="rounded-lg border border-border-soft bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 aria-label={t('switchWorkspace')}
               >
-                {roster.workspaces.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}
-                  </option>
-                ))}
+                {shared.length === 0 ? (
+                  roster.workspaces.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <optgroup label={t('yourWorkspaces')}>
+                      {roster.workspaces.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label={t('sharedWithYou')}>
+                      {shared.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.account_name ? `${w.name} · ${w.account_name}` : w.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </>
+                )}
               </select>
             </label>
           )}
@@ -222,6 +331,10 @@ export function WorkspaceScreen() {
         </Card>
       )}
 
+      {invite && (
+        <AcceptInviteCard invite={invite} onAccepted={acceptedInvite} onDismiss={onInviteDone} />
+      )}
+
       {tab === 'clients' && roster && (
         <ClientsScreen
           roster={roster}
@@ -248,7 +361,11 @@ export function WorkspaceScreen() {
       )}
 
       {workspace && tab === 'analytics' && (
-        <AnalyticsScreen key={`analytics-${workspace.id}`} workspaceId={workspace.id} />
+        <AnalyticsScreen
+          key={`analytics-${workspace.id}`}
+          workspaceId={workspace.id}
+          canAnswerGaps={canManage}
+        />
       )}
 
       {tab === 'billing' && <BillingScreen />}
@@ -274,9 +391,33 @@ export function WorkspaceScreen() {
                 </Badge>
               </div>
             </div>
+            {activeRole && activeRole !== 'owner' && (
+              // Someone invited in can always leave. The owner cannot: their
+              // membership is how the account and its billing are resolved.
+              <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border-soft pt-4">
+                {activeRole === 'agent' && (
+                  <p className="grow text-sm text-muted">{t('agentNote')}</p>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="ms-auto"
+                  onClick={() => void leave(workspace.id)}
+                >
+                  {t('leaveWorkspace')}
+                </Button>
+                {leaveError && (
+                  <p role="alert" dir="auto" className="w-full text-sm text-status-danger">
+                    {leaveError}
+                  </p>
+                )}
+              </div>
+            )}
           </Card>
 
-          <SourcesCard workspaceId={workspace.id} />
+          <SourcesCard workspaceId={workspace.id} canManage={canManage} />
+
+          {canManage && <TeamCard workspaceId={workspace.id} />}
 
           <Card>
             <h2 className="text-lg font-semibold">{t('installTitle')}</h2>
@@ -318,19 +459,6 @@ export function WorkspaceScreen() {
       )}
     </main>
   );
-}
-
-/**
- * Turn a PocketBase error into something readable.
- *
- * The workspace routes put the cases an owner can act on — the plan ceiling,
- * "you can't delete your only workspace" — in a plain `error` field, which the
- * SDK does not copy into `message`. Reading only `message` showed its generic
- * fallback instead of the reason. Same approach as BillingScreen.
- */
-function describe(err: unknown): string {
-  const res = (err as { response?: { error?: string; message?: string } })?.response;
-  return res?.error ?? res?.message ?? (err instanceof Error ? err.message : String(err));
 }
 
 function InstallSnippet({ widgetKey }: { widgetKey: string }) {

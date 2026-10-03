@@ -65,6 +65,37 @@ export const strings = {
     deleteConfirmLabel: 'للتأكيد، اكتب اسم مساحة العمل:',
     deletePermanently: 'احذفها نهائياً',
     deleting: 'جارٍ الحذف…',
+    teamTitle: 'الفريق',
+    teamLead:
+      'ادعُ عميلك أو زملاءك إلى مساحة العمل هذه. المشرف يدير المحتوى والإعدادات، والوكيل يتابع المحادثات ويرد عليها.',
+    seatsLabel: 'المقاعد',
+    invitesNeedGrowth: 'دعوة أعضاء الفريق متاحة بدءاً من باقة النمو.',
+    roleLabel: 'الدور',
+    sendInvite: 'إرسال الدعوة',
+    sendingInvite: 'جارٍ الإرسال…',
+    inviteSentTo: 'أُرسلت الدعوة إلى',
+    inviteNotEmailed:
+      'تعذّر إرسال البريد. انسخ الرابط وأرسله بنفسك — لا يعمل إلا لهذا البريد، وتنتهي صلاحيته بعد سبعة أيام.',
+    pendingInvites: 'دعوات بانتظار القبول',
+    expires: 'تنتهي',
+    expired: 'منتهية',
+    resend: 'إعادة الإرسال',
+    revoke: 'إلغاء',
+    removeMember: 'إزالة',
+    leaveWorkspace: 'مغادرة',
+    you: 'أنت',
+    seatsFull: 'كل المقاعد في باقتك مشغولة. أزل عضواً أو ألغِ دعوة، أو رقِّ الباقة.',
+    inviteTitle: 'دعوة للانضمام',
+    acceptInvite: 'قبول الدعوة',
+    accepting: 'جارٍ القبول…',
+    notNow: 'ليس الآن',
+    inviteUseEmail: 'سجّل الدخول أو أنشئ حساباً بهذا البريد:',
+    inviteExpired: 'انتهت صلاحية هذه الدعوة. اطلب من مُرسلها دعوة جديدة.',
+    inviteInvalid: 'رابط الدعوة غير صالح أو أُلغي.',
+    yourWorkspaces: 'مساحاتك',
+    sharedWithYou: 'انضممت إليها',
+    agentNote:
+      'دورك هنا وكيل: تتابع المحادثات وترد عليها، ويدير المالك والمشرفون المحتوى والإعدادات.',
     mConversations: 'المحادثات',
     mAutoResolved: 'أُجيبت تلقائياً',
     mEscalated: 'مُحوَّلة',
@@ -212,6 +243,38 @@ export const strings = {
     deleteConfirmLabel: 'To confirm, type the workspace name:',
     deletePermanently: 'Delete permanently',
     deleting: 'Deleting…',
+    teamTitle: 'Team',
+    teamLead:
+      'Invite your client or colleagues into this workspace. Admins manage content and settings; agents follow and answer conversations.',
+    seatsLabel: 'Seats',
+    invitesNeedGrowth: 'Inviting team members is available from the Growth plan.',
+    roleLabel: 'Role',
+    sendInvite: 'Send invitation',
+    sendingInvite: 'Sending…',
+    inviteSentTo: 'Invitation sent to',
+    inviteNotEmailed:
+      "We couldn't email it. Copy the link and send it yourself — it only works for that address, and expires in seven days.",
+    pendingInvites: 'Pending invitations',
+    expires: 'Expires',
+    expired: 'Expired',
+    resend: 'Resend',
+    revoke: 'Revoke',
+    removeMember: 'Remove',
+    leaveWorkspace: 'Leave',
+    you: 'You',
+    seatsFull:
+      'Every seat on your plan is taken. Remove someone or revoke an invitation, or upgrade.',
+    inviteTitle: "You've been invited",
+    acceptInvite: 'Accept invitation',
+    accepting: 'Accepting…',
+    notNow: 'Not now',
+    inviteUseEmail: 'Sign in or create an account with:',
+    inviteExpired: 'This invitation has expired. Ask the person who sent it for a new one.',
+    inviteInvalid: 'This invitation link is invalid or was revoked.',
+    yourWorkspaces: 'Your workspaces',
+    sharedWithYou: 'Shared with you',
+    agentNote:
+      "You're an agent here: you follow and answer conversations, while the owner and admins manage content and settings.",
     mConversations: 'Conversations',
     mAutoResolved: 'Auto-resolved',
     mEscalated: 'Escalated',
@@ -367,6 +430,32 @@ export function plural(lang: SupportedLanguage, key: PluralKey, n: number): stri
     return noun;
   }
   return `${formatNumber(n)} ${noun}`;
+}
+
+/**
+ * "Sara invited you to join “Noor Store” as an admin."
+ *
+ * A function rather than fragments, because the two languages order the parts
+ * differently and Arabic takes no article before the role. Gluing translated
+ * pieces together in English word order is how a sentence ends up reading as
+ * machine-assembled.
+ */
+export function inviteLine(
+  lang: SupportedLanguage,
+  inviter: string,
+  workspace: string,
+  role: 'admin' | 'agent',
+): string {
+  if (lang === 'ar') {
+    const r = role === 'admin' ? 'مشرف' : 'وكيل';
+    return inviter
+      ? `دعاك ${inviter} للانضمام إلى «${workspace}» بصفة ${r}.`
+      : `دُعيت للانضمام إلى «${workspace}» بصفة ${r}.`;
+  }
+  const r = role === 'admin' ? 'an admin' : 'an agent';
+  return inviter
+    ? `${inviter} invited you to join “${workspace}” as ${r}.`
+    : `You've been invited to join “${workspace}” as ${r}.`;
 }
 
 /**
