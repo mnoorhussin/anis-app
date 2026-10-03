@@ -44,12 +44,12 @@ func handleCreateSource(deps Deps) func(*core.RequestEvent) error {
 			return e.BadRequestError("could not read the request body", err)
 		}
 
-		workspace, err := workspaceForMember(e.App, e.Auth.Id, req.Workspace)
+		workspace, err := workspaceForManager(e.App, e.Auth.Id, req.Workspace)
 		if err != nil {
 			// Deliberately the same response for "does not exist" and "not
 			// yours". Distinguishing them tells an attacker which workspace
-			// ids are real.
-			return e.NotFoundError("workspace not found", nil)
+			// ids are real. An agent of the workspace gets a 403 instead.
+			return managerError(e, err, "workspace not found")
 		}
 
 		account, err := e.App.FindRecordById("accounts", workspace.GetString("account"))
@@ -145,6 +145,49 @@ func workspaceForMember(app core.App, userID, workspaceID string) (*core.Record,
 	return app.FindRecordById("workspaces", memberships[0].GetString("workspace"))
 }
 
+// errNotManager means the caller belongs to the workspace but only as an agent.
+var errNotManager = errors.New("routes: owners and admins only")
+
+// isManager reports whether a role may change what a workspace knows and how it
+// is set up. Agents work the inbox; they do not add or remove knowledge, which
+// also costs the account embedding spend.
+func isManager(role string) bool { return role == "owner" || role == "admin" }
+
+// workspaceForManager is workspaceForMember for operations an agent may not
+// perform: it returns the workspace only if the caller is its owner or admin.
+//
+// It returns errNotManager when the caller IS a member, so the route can answer
+// 403 ("you can't do that here") rather than 404. Telling a member their role is
+// insufficient reveals nothing they do not already know.
+func workspaceForManager(app core.App, userID, workspaceID string) (*core.Record, error) {
+	filter := `user = {:u} && (role = "owner" || role = "admin")`
+	params := map[string]any{"u": userID}
+	if workspaceID != "" {
+		filter += " && workspace = {:w}"
+		params["w"] = workspaceID
+	}
+	// "-role" sorts owner before admin.
+	memberships, err := app.FindRecordsByFilter("memberships", filter, "-role,created", 1, 0, params)
+	if err != nil {
+		return nil, err
+	}
+	if len(memberships) == 0 {
+		if _, err := workspaceForMember(app, userID, workspaceID); err == nil {
+			return nil, errNotManager
+		}
+		return nil, errors.New("not a member of that workspace")
+	}
+	return app.FindRecordById("workspaces", memberships[0].GetString("workspace"))
+}
+
+// managerError maps workspaceForManager's errors to responses.
+func managerError(e *core.RequestEvent, err error, notFound string) error {
+	if errors.Is(err, errNotManager) {
+		return e.ForbiddenError("only owners and admins can do this", nil)
+	}
+	return e.NotFoundError(notFound, nil)
+}
+
 func underSourceLimit(app core.App, workspaceID string, limit int) error {
 	if limit <= 0 {
 		return nil
@@ -175,10 +218,13 @@ func handleRefreshSource(deps Deps) func(*core.RequestEvent) error {
 			return e.NotFoundError("source not found", nil)
 		}
 
-		// Verify membership of the source's OWN workspace. Reading the id from
-		// the record rather than the request is what makes this safe.
-		workspace, err := workspaceForMember(e.App, e.Auth.Id, source.GetString("workspace"))
-		if err != nil || workspace.Id != source.GetString("workspace") {
+		// Verify the caller manages the source's OWN workspace. Reading the id
+		// from the record rather than the request is what makes this safe.
+		workspace, err := workspaceForManager(e.App, e.Auth.Id, source.GetString("workspace"))
+		if err != nil {
+			return managerError(e, err, "source not found")
+		}
+		if workspace.Id != source.GetString("workspace") {
 			return e.NotFoundError("source not found", nil)
 		}
 

@@ -144,10 +144,14 @@ func handleAnswerGap(deps Deps) func(*core.RequestEvent) error {
 		if err != nil {
 			return e.NotFoundError("not found", nil)
 		}
-		// Membership is verified against the gap's OWN workspace, read from
-		// the record rather than the request.
-		workspace, err := workspaceForMember(e.App, e.Auth.Id, gap.GetString("workspace"))
-		if err != nil || workspace.Id != gap.GetString("workspace") {
+		// The caller must manage the gap's OWN workspace, read from the record
+		// rather than the request: answering a gap adds knowledge (and costs
+		// embedding spend), which is an owner's or admin's call, not an agent's.
+		workspace, err := workspaceForManager(e.App, e.Auth.Id, gap.GetString("workspace"))
+		if err != nil {
+			return managerError(e, err, "not found")
+		}
+		if workspace.Id != gap.GetString("workspace") {
 			return e.NotFoundError("not found", nil)
 		}
 
