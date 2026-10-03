@@ -225,7 +225,11 @@ function Metric({
         // Figures are Western digits in both languages and never mirrored.
         dir="ltr"
         className={`mt-1 text-start font-display text-2xl font-semibold ${
-          tone === 'success' ? 'text-status-success' : tone === 'warning' ? 'text-status-warning' : ''
+          tone === 'success'
+            ? 'text-status-success'
+            : tone === 'warning'
+              ? 'text-status-warning'
+              : ''
         }`}
       >
         {value}
