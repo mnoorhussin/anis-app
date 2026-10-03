@@ -9,6 +9,7 @@ import { useSignOut } from '../lib/useAuth.js';
 import { AnalyticsScreen } from './AnalyticsScreen.js';
 import { BillingScreen } from './BillingScreen.js';
 import { ClientsScreen, type Roster } from './ClientsScreen.js';
+import { DeleteWorkspaceCard } from './DeleteWorkspaceCard.js';
 import { InboxScreen } from './InboxScreen.js';
 import { SourcesCard } from './SourcesCard.js';
 
@@ -43,6 +44,8 @@ export function WorkspaceScreen() {
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // The roster is the account's workspaces plus their shared-allowance usage.
   // It is the one source of truth for the switcher and the Clients screen, so
@@ -71,6 +74,8 @@ export function WorkspaceScreen() {
   // only what the list needs; the detail tab needs the widget key, the domain
   // allow-list and the plan, so those are fetched per selection.
   useEffect(() => {
+    // A failed delete's message belongs to the workspace it was about.
+    setDeleteError(null);
     if (!activeId) {
       setWorkspace(null);
       return;
@@ -102,16 +107,34 @@ export function WorkspaceScreen() {
         setActiveId(created.id);
         return true;
       } catch (err) {
-        // PocketBase's client wraps a non-2xx body; its `message` holds our
-        // handler's error (e.g. the plan ceiling), which is safe to show.
-        const msg =
-          err && typeof err === 'object' && 'message' in err
-            ? String((err as { message: unknown }).message)
-            : String(err);
-        setCreateError(msg);
+        setCreateError(describe(err));
         return false;
       } finally {
         setCreating(false);
+      }
+    },
+    [loadRoster],
+  );
+
+  const deleteWorkspace = useCallback(
+    async (id: string): Promise<boolean> => {
+      setDeleting(true);
+      setDeleteError(null);
+      try {
+        await pb.send(`/api/anis/workspaces/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        // The deleted id is no longer in the roster, so loadRoster moves the
+        // selection to another workspace the caller owns. The Clients tab then
+        // shows the roster without it — the confirmation that it is gone. It is
+        // only in the nav on a multi-workspace plan; a downgraded account still
+        // tidying up its extra workspaces lands back on the workspace tab.
+        const r = await loadRoster();
+        setTab((r?.account.max_workspaces ?? 1) > 1 ? 'clients' : 'workspace');
+        return true;
+      } catch (err) {
+        setDeleteError(describe(err));
+        return false;
+      } finally {
+        setDeleting(false);
       }
     },
     [loadRoster],
@@ -124,6 +147,11 @@ export function WorkspaceScreen() {
   const domains = workspace?.allowed_domains ?? [];
   const multi = (roster?.account.max_workspaces ?? 1) > 1;
   const switchable = (roster?.workspaces.length ?? 0) > 1;
+  // Mirrors the server's guard: only an owner may delete, and never the last
+  // workspace they own. Hiding the card in those cases spares a 409 the owner
+  // could do nothing about; the backend still enforces it either way.
+  const owned = roster?.workspaces.filter((w) => w.role === 'owner') ?? [];
+  const canDelete = !!workspace && owned.length > 1 && owned.some((w) => w.id === workspace.id);
 
   const tabs: Tab[] = multi
     ? ['clients', 'workspace', 'inbox', 'analytics', 'billing']
@@ -225,8 +253,8 @@ export function WorkspaceScreen() {
 
       {tab === 'billing' && <BillingScreen />}
 
-      {/* One key for the whole tab, so a half-written source draft resets when
-          the workspace changes. */}
+      {/* One key for the whole tab: the sources draft and the half-typed delete
+          confirmation reset together when the workspace changes. */}
       {workspace && tab === 'workspace' && (
         <Fragment key={`workspace-${workspace.id}`}>
           <Card>
@@ -277,10 +305,32 @@ export function WorkspaceScreen() {
               </ul>
             )}
           </Card>
+
+          {canDelete && (
+            <DeleteWorkspaceCard
+              name={workspace.name}
+              onDelete={() => deleteWorkspace(workspace.id)}
+              deleting={deleting}
+              error={deleteError}
+            />
+          )}
         </Fragment>
       )}
     </main>
   );
+}
+
+/**
+ * Turn a PocketBase error into something readable.
+ *
+ * The workspace routes put the cases an owner can act on — the plan ceiling,
+ * "you can't delete your only workspace" — in a plain `error` field, which the
+ * SDK does not copy into `message`. Reading only `message` showed its generic
+ * fallback instead of the reason. Same approach as BillingScreen.
+ */
+function describe(err: unknown): string {
+  const res = (err as { response?: { error?: string; message?: string } })?.response;
+  return res?.error ?? res?.message ?? (err instanceof Error ? err.message : String(err));
 }
 
 function InstallSnippet({ widgetKey }: { widgetKey: string }) {

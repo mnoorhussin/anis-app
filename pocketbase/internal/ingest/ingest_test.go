@@ -2,6 +2,7 @@ package ingest_test
 
 import (
 	"context"
+	"errors"
 	"hash/fnv"
 	"math"
 	"strings"
@@ -287,6 +288,96 @@ func TestDeletingAWorkspaceRemovesItsVectors(t *testing.T) {
 
 	if after := countVectors(t, app, ws); after != 0 {
 		t.Errorf("ORPHANED VECTORS: %d left after deleting the workspace", after)
+	}
+}
+
+// The workspace delete route runs its guard and the delete in one transaction.
+// That path is not the same as a bare app.Delete: PocketBase defers
+// after-success hooks to the commit, so this pins that the vector cleanup still
+// happens there — and that the partition-key delete leaves every other tenant's
+// vectors alone.
+func TestDeletingAWorkspaceInATransactionRemovesItsVectors(t *testing.T) {
+	app := newApp(t)
+	ws := newWorkspace(t, app, "tx@example.com")
+	other := newWorkspace(t, app, "bystander@example.com")
+	svc := &ingest.Service{Embedder: &bagOfWords{}}
+
+	for _, id := range []string{ws, other} {
+		if _, err := svc.Run(context.Background(), app, ingest.Request{
+			WorkspaceID: id, Title: "Notes", Type: "text", ChunkLimit: 500,
+			Body: "Opening hours are 9 to 5.\n\nWe are closed on Fridays.",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	otherBefore := countVectors(t, app, other)
+
+	err := app.RunInTransaction(func(txApp core.App) error {
+		w, err := txApp.FindRecordById("workspaces", ws)
+		if err != nil {
+			return err
+		}
+		return txApp.Delete(w)
+	})
+	if err != nil {
+		t.Fatalf("delete workspace in transaction: %v", err)
+	}
+
+	if after := countVectors(t, app, ws); after != 0 {
+		t.Errorf("ORPHANED VECTORS: %d left after a transactional workspace delete", after)
+	}
+	for _, col := range []string{"chunks", "sources", "memberships"} {
+		rows, err := app.FindRecordsByFilter(col, "workspace = {:w}", "", 0, 0,
+			map[string]any{"w": ws})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(rows) != 0 {
+			t.Errorf("%d %s rows survived the workspace delete", len(rows), col)
+		}
+	}
+	if got := countVectors(t, app, other); got != otherBefore {
+		t.Errorf("another workspace lost vectors: had %d, now %d", otherBefore, got)
+	}
+}
+
+// The other half of the transactional contract: if the transaction rolls back
+// after the delete, nothing may be lost. A cleanup that ran outside the
+// transaction would wipe the knowledge base of a workspace that still exists —
+// a failed delete silently emptying a customer's assistant.
+func TestARolledBackWorkspaceDeleteKeepsItsVectors(t *testing.T) {
+	app := newApp(t)
+	ws := newWorkspace(t, app, "rollback@example.com")
+	svc := &ingest.Service{Embedder: &bagOfWords{}}
+
+	if _, err := svc.Run(context.Background(), app, ingest.Request{
+		WorkspaceID: ws, Title: "Notes", Type: "text", ChunkLimit: 500,
+		Body: "Opening hours are 9 to 5.\n\nWe are closed on Fridays.",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	before := countVectors(t, app, ws)
+
+	abort := errors.New("abort after delete")
+	err := app.RunInTransaction(func(txApp core.App) error {
+		w, err := txApp.FindRecordById("workspaces", ws)
+		if err != nil {
+			return err
+		}
+		if err := txApp.Delete(w); err != nil {
+			return err
+		}
+		return abort
+	})
+	if !errors.Is(err, abort) {
+		t.Fatalf("expected the transaction to abort, got %v", err)
+	}
+
+	if _, err := app.FindRecordById("workspaces", ws); err != nil {
+		t.Fatalf("the workspace should survive a rolled-back delete: %v", err)
+	}
+	if after := countVectors(t, app, ws); after != before {
+		t.Errorf("a rolled-back delete removed vectors: had %d, now %d", before, after)
 	}
 }
 

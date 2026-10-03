@@ -5,31 +5,35 @@ read first by anyone (or any session) picking this up cold.
 
 ## Built and tested
 
-| Area                                                         | State                                                          |
-| ------------------------------------------------------------ | -------------------------------------------------------------- |
-| Monorepo, tokens, CI tasks                                   | Done — `pnpm check` runs 21 tasks green                        |
-| Signup → account, workspace, owner membership, widget key    | Done, atomic with the user row                                 |
-| Sources: text, FAQ                                           | Done                                                           |
-| Sources: website crawl (robots, boilerplate, refresh)        | Done                                                           |
-| Sources: PDF                                                 | Extraction done; **Arabic PDFs are refused** — see below       |
-| Retrieval, confidence floor, refusal                         | Done, floor is a parameter                                     |
-| Widget: chat, streaming, RTL per message                     | Done                                                           |
-| Escalation: lead capture, notification                       | Done                                                           |
-| Inbox: conversations, takeover, human reply                  | Done                                                           |
-| Live: agent replies pushed to the visitor                    | Done                                                           |
-| Usage metering + hard spending cap                           | Done                                                           |
-| Stripe: checkout, webhooks, portal, billing screen           | Done — webhook path verified, API calls not                    |
-| Ratings, analytics view, knowledge-gap queue                 | Done — a thumbs-up is the only resolution signal today         |
-| Agency: list + create client workspaces, per-workspace usage | Done — plan ceiling + tenancy verified in `workspaces.mjs` e2e |
+| Area                                                       | State                                                         |
+| ---------------------------------------------------------- | ------------------------------------------------------------- |
+| Monorepo, tokens, CI tasks                                 | Done — `pnpm check` runs 21 tasks green                       |
+| Signup → account, workspace, owner membership, widget key  | Done, atomic with the user row                                |
+| Sources: text, FAQ                                         | Done                                                          |
+| Sources: website crawl (robots, boilerplate, refresh)      | Done                                                          |
+| Sources: PDF                                               | Extraction done; **Arabic PDFs are refused** — see below      |
+| Retrieval, confidence floor, refusal                       | Done, floor is a parameter                                    |
+| Widget: chat, streaming, RTL per message                   | Done                                                          |
+| Escalation: lead capture, notification                     | Done                                                          |
+| Inbox: conversations, takeover, human reply                | Done                                                          |
+| Live: agent replies pushed to the visitor                  | Done                                                          |
+| Usage metering + hard spending cap                         | Done                                                          |
+| Stripe: checkout, webhooks, portal, billing screen         | Done — webhook path verified, API calls not                   |
+| Ratings, analytics view, knowledge-gap queue               | Done — a thumbs-up is the only resolution signal today        |
+| Agency: list, create, delete client workspaces; usage each | Done — ceiling, tenancy, cascade verified in `workspaces.mjs` |
 
 Not started: WhatsApp/Messenger, advanced actions, instant-demo generator.
 
 Agency is partially built. Listing the account's workspaces, creating another
-under the plan's ceiling (Pro's extra assistants, an agency's clients), the
-dashboard switcher and the Clients overview all work. Still to build: client
-invitations, workspace duplication, branded reports, and deleting a workspace —
-delete in particular needs the `vec_chunks` orphan cleanup that source deletion
-already does, so it is its own tested change rather than a one-liner.
+under the plan's ceiling (Pro's extra assistants, an agency's clients),
+deleting one, the dashboard switcher and the Clients overview all work. Still
+to build: client invitations, workspace duplication, and branded reports.
+
+Deleting a workspace removes its children by cascade and its vectors through
+the `workspaces` delete hook; both are tested, including inside the route's
+transaction and on rollback. The owner can never delete the last workspace they
+own — that membership is how their account is resolved. Usage already recorded
+stays on the account, so deleting is not a way to reset the shared allowance.
 
 Deliberately absent from the analytics view: **top topics**. Clustering is not
 implemented, and a keyword-frequency list would look authoritative while

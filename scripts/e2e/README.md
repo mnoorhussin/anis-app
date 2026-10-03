@@ -33,6 +33,12 @@ Then, from the repo root:
 node scripts/e2e/signup.mjs
 ```
 
+Make sure nothing else is already listening on 8090 first — a backend left
+running from an earlier session, say. The new one then fails to bind and exits,
+but the scripts still run, against the OLD build. A route that build lacks
+answers with PocketBase's plain 404, so a check that expects a 404 (a tenancy
+refusal, a deleted resource) passes for the wrong reason.
+
 Each script is self-contained — it creates its own users and workspaces with a
 timestamped email — so they can run in any order against the same database, and
 re-running them does not require a reset.
@@ -47,7 +53,7 @@ re-running them does not require a reset.
 | `stream.mjs`     | History replay, agent replies reaching the visitor, four authorisation refusals                     |
 | `billing.mjs`    | Webhook signatures, idempotent replays, `past_due` keeping the plan, owner-scoped writes            |
 | `analytics.mjs`  | Ratings resolving (or not) a conversation, the summary's figures, answering a knowledge gap         |
-| `workspaces.mjs` | The plan ceiling on workspaces, creating a client workspace under the caller's own account, tenancy |
+| `workspaces.mjs` | The plan ceiling on workspaces, creating and deleting a client workspace, cascade, tenancy          |
 
 `crawl.mjs` starts its own fake customer site on a random port, which is why
 the backend needs `ANIS_ALLOW_PRIVATE_CRAWL=1` — the SSRF guard would otherwise

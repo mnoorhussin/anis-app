@@ -50,6 +50,32 @@ func TestSlotsLeftMatchesTheCatalogue(t *testing.T) {
 	}
 }
 
+// TestKeepsAnOwnedWorkspace pins the delete guard. What it protects is the
+// caller's last OWNER membership in the account, not the account's last
+// workspace: deleting the only workspace they own must be refused, or they lose
+// the membership ownedAccount resolves them through — and deleting a workspace
+// they merely sit in must not count against what they own.
+func TestKeepsAnOwnedWorkspace(t *testing.T) {
+	cases := []struct {
+		name     string
+		owned    []string
+		deleting string
+		want     bool
+	}{
+		{"one of two owned", []string{"a", "b"}, "a", true},
+		{"the only owned one", []string{"a"}, "a", false},
+		{"owns nothing", nil, "a", false},
+		{"deleting one not in the owned set", []string{"a"}, "x", true},
+		{"several owned", []string{"a", "b", "c"}, "c", true},
+	}
+	for _, c := range cases {
+		if got := keepsAnOwnedWorkspace(c.owned, c.deleting); got != c.want {
+			t.Errorf("%s: keepsAnOwnedWorkspace(%v, %q) = %t, want %t",
+				c.name, c.owned, c.deleting, got, c.want)
+		}
+	}
+}
+
 // TestMonthStartUTC checks the boundary used to scope per-workspace usage to the
 // current period: it must parse in PocketBase's stored layout and land on the
 // first of the month at midnight UTC. A drift here would quietly count replies

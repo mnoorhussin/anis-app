@@ -1,6 +1,7 @@
 // End-to-end check of the agency workspace roster: the plan ceiling, creating a
 // client workspace, and that creation lands under the caller's own account and
-// never leaks across tenants.
+// never leaks across tenants. Then deleting one: refused across tenants, its
+// content and widget gone, and the owner's last workspace kept.
 //
 // Over real HTTP with proper UTF-8, because that is where tenancy-on-custom-
 // routes bugs actually surface — a create that resolves the wrong account would
@@ -115,6 +116,7 @@ check(
   `new workspace has a widget key`,
 );
 const newWsId = c.body.id;
+const newWsKey = c.body.widget_key;
 
 ov = await j('/api/anis/workspaces', { headers: { authorization: token } });
 check(
@@ -155,6 +157,85 @@ check(
 );
 check(ovB.body.account?.id !== accountId, `B has a different account`);
 check(!ovB.body.workspaces.some((w) => w.id === newWsId), `B cannot see A's client workspace`);
+
+// --- delete -----------------------------------------------------------------
+// Give the client workspace indexed content and a live widget first, so the
+// delete is checked against something real to lose — a fresh workspace's widget
+// already 404s (no allowed domains), which would make "it stops working" vacuous.
+const src = await j('/api/anis/sources', {
+  method: 'POST',
+  headers: { authorization: token },
+  body: JSON.stringify({
+    workspace: newWsId,
+    type: 'text',
+    title: 'ساعات العمل',
+    body: 'نفتح من التاسعة صباحاً حتى الخامسة مساءً.\n\nنغلق يوم الجمعة.',
+  }),
+});
+check(src.status === 200, `content added to the client workspace -> ${src.status}`);
+
+const ORIGIN = 'https://noor.example.com';
+const dom = await j(`/api/collections/workspaces/records/${newWsId}`, {
+  method: 'PATCH',
+  headers: { authorization: token },
+  body: JSON.stringify({ allowed_domains: ['noor.example.com'] }),
+});
+check(dom.status === 200, `client domain allowed -> ${dom.status}`);
+let wcfg = await j(`/api/anis/widget/${newWsKey}/config`, { headers: { origin: ORIGIN } });
+check(wcfg.status === 200, `the client's widget is live before the delete -> ${wcfg.status}`);
+
+// Counted as superuser: after the delete the owner's own reads are filtered by
+// membership, which is also gone, so an empty result from them would prove
+// nothing about whether the rows were actually removed.
+const suAuth = { authorization: su.body.token };
+const countIn = async (collection, ws) => {
+  const filter = encodeURIComponent(`workspace='${ws}'`);
+  const r = await j(`/api/collections/${collection}/records?filter=${filter}`, { headers: suAuth });
+  return r.body.totalItems;
+};
+check((await countIn('chunks', newWsId)) > 0, `the client workspace has indexed chunks`);
+
+let d = await j(`/api/anis/workspaces/${newWsId}`, {
+  method: 'DELETE',
+  headers: { authorization: authB.body.token },
+});
+check(d.status === 404, `another account cannot delete it (and gets a plain 404) -> ${d.status}`);
+
+d = await j(`/api/anis/workspaces/${newWsId}`, {
+  method: 'DELETE',
+  headers: { authorization: token },
+});
+check(d.status === 204, `the owner deletes the client workspace -> ${d.status}`);
+
+ov = await j('/api/anis/workspaces', { headers: { authorization: token } });
+check(
+  ov.body.workspaces?.length === 1 && !ov.body.workspaces.some((w) => w.id === newWsId),
+  `the roster no longer lists it (saw ${ov.body.workspaces?.length})`,
+);
+check(ov.body.account?.slots_left === 19, `the freed slot is available again`);
+for (const col of ['sources', 'chunks', 'memberships']) {
+  const n = await countIn(col, newWsId);
+  check(n === 0, `its ${col} went with it (saw ${n})`);
+}
+
+wcfg = await j(`/api/anis/widget/${newWsKey}/config`, { headers: { origin: ORIGIN } });
+check(wcfg.status === 404, `its widget stops working on the client's site -> ${wcfg.status}`);
+
+d = await j(`/api/anis/workspaces/${newWsId}`, {
+  method: 'DELETE',
+  headers: { authorization: token },
+});
+check(d.status === 404, `deleting it again is a 404 -> ${d.status}`);
+
+// --- the last workspace the owner owns cannot go ----------------------------
+d = await j(`/api/anis/workspaces/${first.id}`, {
+  method: 'DELETE',
+  headers: { authorization: token },
+});
+check(d.status === 409, `the owner's only workspace cannot be deleted -> ${d.status}`);
+check(typeof d.body.error === 'string' && d.body.error.length > 0, `and the reason is given`);
+ov = await j('/api/anis/workspaces', { headers: { authorization: token } });
+check(ov.body.workspaces?.length === 1, `it is still there`);
 
 console.log(fail ? `\n${fail} check(s) FAILED` : `\nall workspace checks passed`);
 process.exit(fail ? 1 : 0);

@@ -70,11 +70,13 @@ func Register(e *core.ServeEvent, deps Deps) error {
 	authed.POST("/gaps/answer", handleAnswerGap(deps))
 
 	// Workspace roster: list every workspace under the caller's account with
-	// its usage, and create another where the plan allows it (Pro's extra
-	// assistants, an agency's client workspaces). Renaming a workspace is an
-	// ordinary collection update, already allowed by the workspaces rule.
+	// its usage, create another where the plan allows it (Pro's extra
+	// assistants, an agency's client workspaces), and delete one the caller
+	// owns. Renaming a workspace is an ordinary collection update, already
+	// allowed by the workspaces rule.
 	authed.GET("/workspaces", handleListWorkspaces)
 	authed.POST("/workspaces", handleCreateWorkspace)
+	authed.DELETE("/workspaces/{id}", handleDeleteWorkspace)
 
 	// --- Widget: called from arbitrary third-party domains -----------------
 	//

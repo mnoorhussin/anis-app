@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -294,6 +295,96 @@ func handleCreateWorkspace(e *core.RequestEvent) error {
 		WidgetKey: created.GetString("widget_key"),
 		Role:      "owner",
 	})
+}
+
+// keepsAnOwnedWorkspace reports whether deleting `deleting` would still leave
+// the caller owning at least one workspace in the account. `owned` is the ids of
+// the account's workspaces on which the caller holds the owner role.
+//
+// This is the invariant delete must protect, and it is narrower than "the
+// account keeps a workspace": ownedAccount resolves the caller's account
+// through an owner membership, so deleting the last workspace they own would
+// lock them out of their own billing and roster even if other workspaces
+// remained. Pulled out as a pure function so it is tested without a database.
+func keepsAnOwnedWorkspace(owned []string, deleting string) bool {
+	for _, id := range owned {
+		if id != deleting {
+			return true
+		}
+	}
+	return false
+}
+
+var (
+	errWorkspaceNotFound = errors.New("workspace not found")
+	errLastWorkspace     = errors.New("last owned workspace")
+)
+
+// handleDeleteWorkspace deletes a workspace and everything in it.
+//
+// Only the account owner may delete, and only a workspace under their own
+// account: the account is derived from the caller's owner membership and
+// compared with the workspace's, never read from the request. Anything else is
+// the same 404 as a workspace that does not exist, so ids cannot be probed.
+//
+// The children go by cascade — memberships, sources, chunks, conversations,
+// messages, leads, escalations and knowledge gaps all declare CascadeDelete on their
+// workspace relation. The vectors do not: vec_chunks is a virtual table outside
+// PocketBase's reach, and is cleared by the workspaces delete hook in
+// ingest.RegisterHooks. The e2e suite checks both actually happen.
+//
+// The guard and the delete share one transaction, so two concurrent deletes
+// cannot each see a sibling and together remove the caller's last workspace.
+//
+// Usage already recorded this period stays on the account. Deleting a workspace
+// is not a way to reset the shared allowance.
+func handleDeleteWorkspace(e *core.RequestEvent) error {
+	if e.Auth == nil {
+		return e.UnauthorizedError("sign in required", nil)
+	}
+	id := e.Request.PathValue("id")
+
+	account, err := ownedAccount(e.App, e.Auth.Id)
+	if err != nil {
+		return e.NotFoundError("workspace not found", nil)
+	}
+
+	err = e.App.RunInTransaction(func(txApp core.App) error {
+		w, err := txApp.FindRecordById("workspaces", id)
+		if err != nil || w.GetString("account") != account.Id {
+			return errWorkspaceNotFound
+		}
+
+		memberships, err := txApp.FindRecordsByFilter("memberships",
+			`user = {:u} && role = "owner" && workspace.account = {:a}`, "", 0, 0,
+			map[string]any{"u": e.Auth.Id, "a": account.Id})
+		if err != nil {
+			return err
+		}
+		owned := make([]string, 0, len(memberships))
+		for _, m := range memberships {
+			owned = append(owned, m.GetString("workspace"))
+		}
+		if !keepsAnOwnedWorkspace(owned, w.Id) {
+			return errLastWorkspace
+		}
+
+		return txApp.Delete(w)
+	})
+	switch {
+	case errors.Is(err, errWorkspaceNotFound):
+		return e.NotFoundError("workspace not found", nil)
+	case errors.Is(err, errLastWorkspace):
+		// 409, not 400: the request is well-formed. It conflicts with the
+		// account's current state and would succeed once another workspace
+		// exists.
+		return e.JSON(http.StatusConflict, map[string]any{
+			"error": "you can't delete your only workspace",
+		})
+	case err != nil:
+		return e.InternalServerError("could not delete the workspace", err)
+	}
+	return e.NoContent(http.StatusNoContent)
 }
 
 // saveWithFreshKey saves a workspace with a generated widget key, retrying on
