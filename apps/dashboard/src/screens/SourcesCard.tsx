@@ -44,14 +44,20 @@ export function SourcesCard({ workspaceId }: { workspaceId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    // No workspace filter: the collection's list rule already scopes this to
-    // workspaces the caller belongs to. Filtering client-side would be a
-    // suggestion, not a boundary.
+    // The collection's list rule is the security boundary: it already limits
+    // this to workspaces the caller belongs to. The filter is not a boundary —
+    // it picks WHICH of those workspaces is on screen. Without it, anyone with
+    // several (an agency, a Pro account) sees every workspace's sources listed
+    // under the one they opened, and could delete a client's content believing
+    // it belonged to another.
     pb.collection('sources')
-      .getFullList<Source>({ sort: '-created' })
+      .getFullList<Source>({
+        filter: pb.filter('workspace = {:w}', { w: workspaceId }),
+        sort: '-created',
+      })
       .then(setSources)
       .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
-  }, []);
+  }, [workspaceId]);
 
   useEffect(load, [load]);
 

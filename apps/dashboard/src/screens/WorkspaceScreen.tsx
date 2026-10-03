@@ -1,6 +1,6 @@
 import { PLANS, type PlanId } from '@anis/types';
 import { Badge, Button, Card, Logo } from '@anis/ui';
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 
 import { formatNumber, type StringKey } from '../i18n.js';
 import { useLanguage } from '../lib/LanguageContext.js';
@@ -208,14 +208,27 @@ export function WorkspaceScreen() {
         />
       )}
 
-      {workspace && tab === 'inbox' && <InboxScreen workspaceId={workspace.id} plan={plan} />}
+      {/* Keyed by workspace so switching remounts rather than reusing state: an
+          open conversation, a half-written reply or a source draft belongs to
+          the workspace it was started in, and must not carry over to — or be
+          submitted into — the next one. Each key is prefixed because these are
+          siblings under <main>; two children sharing a bare workspace id is a
+          duplicate key, which React resolves by leaving stale elements on
+          screen. */}
+      {workspace && tab === 'inbox' && (
+        <InboxScreen key={`inbox-${workspace.id}`} workspaceId={workspace.id} plan={plan} />
+      )}
 
-      {workspace && tab === 'analytics' && <AnalyticsScreen workspaceId={workspace.id} />}
+      {workspace && tab === 'analytics' && (
+        <AnalyticsScreen key={`analytics-${workspace.id}`} workspaceId={workspace.id} />
+      )}
 
       {tab === 'billing' && <BillingScreen />}
 
+      {/* One key for the whole tab, so a half-written source draft resets when
+          the workspace changes. */}
       {workspace && tab === 'workspace' && (
-        <>
+        <Fragment key={`workspace-${workspace.id}`}>
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -264,7 +277,7 @@ export function WorkspaceScreen() {
               </ul>
             )}
           </Card>
-        </>
+        </Fragment>
       )}
     </main>
   );

@@ -63,11 +63,16 @@ export function InboxScreen({ workspaceId, plan }: { workspaceId: string; plan: 
   const canTakeOver = PLANS[plan].features.includes('humanTakeover');
 
   const loadConversations = useCallback(() => {
-    // No workspace filter: the collection rules already scope this. The sort
-    // puts anything waiting for a person first — an inbox ordered purely by
-    // time buries the one conversation that actually needs someone.
+    // The collection rules are the security boundary; the workspace filter
+    // picks which of the caller's workspaces this inbox is for. Without it an
+    // agency's inbox mixes every client's visitors together. The sort puts
+    // anything waiting for a person first — an inbox ordered purely by time
+    // buries the one conversation that actually needs someone.
     pb.collection('conversations')
-      .getFullList<Conversation>({ sort: '-updated' })
+      .getFullList<Conversation>({
+        filter: pb.filter('workspace = {:w}', { w: workspaceId }),
+        sort: '-updated',
+      })
       .then((all) =>
         setConversations(
           [...all].sort((a, b) => {
@@ -78,7 +83,7 @@ export function InboxScreen({ workspaceId, plan }: { workspaceId: string; plan: 
         ),
       )
       .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
-  }, []);
+  }, [workspaceId]);
 
   useEffect(loadConversations, [loadConversations]);
 
